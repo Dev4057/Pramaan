@@ -278,3 +278,29 @@ If you want, this README can be followed by:
 - a root-level `Makefile` for one-command local startup,
 - a `.env.example` at root that points to each subproject,
 - and a CI workflow that runs frontend build + contract tests automatically.
+
+## Fileverse Integration (Data Storage & Portability)
+
+### 1) How we are using it
+Fileverse is integrated directly into the verification flow. Once a user completes their identity checks, income validation, and generates a Gig Score, the entire finalized state (wallet, score, verification status, and timestamp) is packaged and pushed directly to a Fileverse Local Node (`http://localhost:8001/api/ddocs`) as an encrypted dDoc.
+
+### 2) Why we are using it
+We use Fileverse to ensure **data portability and transparency**. While core states (like the Gig Score) are recorded on-chain, storing the rich metadata and complete verification context purely on Ethereum is too expensive and rigid. Fileverse allows us to store the detailed proof payload decently, scalably, and user-owned, acting as a dynamic "Pramaan Passport" that the user can share at will.
+
+### 3) How everything gets stored properly
+When the "Check My GigScore" process completes successfully on the frontend, an automated background function (`handleDebugFileverse`) bundles the user's data:
+- Address & Final GigScore
+- Proof hashes / ZK Commitments
+- Timestamp
+This JSON object is posted to the Fileverse API, which returns a unique **dDoc ID**. This ID gets stored on-chain inside the `WorkerProfile` struct so the EVM state directly points to the detailed Fileverse document. 
+
+### 4) Access & Privacy (Data Fetching)
+- **Agent Fetching:** The backend AI Agent doesn't read from Fileverse to *generate* the score; it utilizes the raw proof inputs. Fileverse is strictly the *output* data layer storing the finalized, computed score and metadata.
+- **Authorized Individual Fetching:** Anyone with the specific Fileverse `dDoc ID` (or viewing the user's profile where the link is shared) can fetch the document content. The app provides a direct "View on Fileverse" button bridging users directly to `https://docs.fileverse.io/`.
+- **Unauthorized Access Prevention:** Unless the specific, cryptographic `dDoc ID` identifier is shared by the worker (or retrieved via on-chain lookups intentionally exposed by the worker), the specific document link acts as an unguessable endpoint, keeping raw worker metadata obscured from blanket public scraping.
+
+### 5) End-to-End Productive Showcase
+The Fileverse workflow in Pramaan demonstrates an optimal Web3 architecture: **Compute on-chain, Store on Fileverse.** 
+- It works completely end-to-end: Identity is proven (ZK/Aadhaar) $\rightarrow$ Smart Contract verifies rules $\rightarrow$ Score is computed $\rightarrow$ Full state automatically pushes to Fileverse.
+- It displays seamless UX: The frontend immediately surfaces the `dDoc ID` post-computation without requiring a secondary user signature, and offers a 1-click external link to view the generated credentials.
+

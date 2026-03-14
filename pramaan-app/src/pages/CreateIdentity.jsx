@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3 } from "lucide-react";
+import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { LogInWithAnonAadhaar, useAnonAadhaar, useProver } from '@anon-aadhaar/react';
@@ -38,11 +38,60 @@ export default function CreateIdentity() {
   const [step2Done, setStep2Done] = useState(false);
   const [gigScore, setGigScore] = useState(null);
   const [displayScore, setDisplayScore] = useState(0);
+  const [finalProfile, setFinalProfile] = useState(null);
 
   const [identityQR, setIdentityQR] = useState(null);
   const [selectedProvider, setSelectedProvider] = useState('sbi');
   const [loadingAction, setLoadingAction] = useState(false);
   const [error, setError] = useState(null);
+
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugDdoc, setDebugDdoc] = useState(null);
+
+  async function handleDebugFileverse(currentGigScore) {
+    setDebugLoading(true);
+    try {
+      const res = await fetch(`http://localhost:8001/api/ddocs?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Pramaan Final Debug State - ${address}`,
+          content: JSON.stringify({
+            address,
+            gigScore: currentGigScore !== undefined ? currentGigScore : gigScore,
+            finalProfile,
+            timestamp: new Date().toISOString()
+          }, null, 2)
+        })
+      });
+      if (!res.ok) throw new Error("Failed connecting to local Fileverse API");
+      const data = await res.json();
+      setDebugDdoc(data?.data?.ddocId || data?.ddocId || "Unknown");
+    } catch (err) {
+      console.error('Debug to Fileverse failed:', err);
+    }
+    setDebugLoading(false);
+  }
+
+  async function openFileverseDdoc(id) {
+    if (!id) return;
+    try {
+      const res = await fetch(`http://localhost:8001/api/ddocs/${id}?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`);
+      if (!res.ok) {
+        alert("DDoc not found or not synced yet!");
+        return;
+      }
+      const data = await res.json();
+      if (data.link) {
+        window.open(data.link + '?dev-mode=true', '_blank');
+      } else {
+        alert("Document is still syncing to Fileverse. Please try again in a few seconds.");
+      }
+    } catch (err) {
+      console.error("Error opening dDoc:", err);
+      alert("Error fetching from local Fileverse node.");
+    }
+  }
 
   // Helper to safely read profile without ABI crashing
   async function getSafeProfile() {
@@ -52,14 +101,26 @@ export default function CreateIdentity() {
       const data = await publicClient.readContract({
         address: CONTRACT_ADDRESS, abi: WORKER_GETTER_ABI, functionName: 'workers', args: [address]
       });
-      return { identityVerified: data[0], incomeVerified: data[1], platform: data[6] };
+      return { 
+        identityVerified: data[0], 
+        incomeVerified: data[1], 
+        platform: data[6],
+        identityDdocId: data[4],
+        incomeDdocId: data[5]
+      };
     } catch (err) {
       try {
         // Fallback to legacy ABI
         const data = await publicClient.readContract({
           address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'workers', args: [address]
         });
-        return { identityVerified: data[0], incomeVerified: data[1], platform: data[6] };
+        return { 
+          identityVerified: data[0], 
+          incomeVerified: data[1], 
+          platform: data[6],
+          identityDdocId: data[4],
+          incomeDdocId: data[5]
+        };
       } catch (e) {
         return null;
       }
@@ -226,7 +287,14 @@ export default function CreateIdentity() {
         if (elapsed >= duration) {
           setDisplayScore(finalScore);
           clearInterval(interval);
-          setTimeout(() => setPhase("complete"), 1000);
+
+          // FETCH THE FINAL ON-CHAIN DATA FOR THE PASSPORT
+          getSafeProfile().then(p => setFinalProfile(p)); 
+
+          setTimeout(() => {
+            setPhase("complete");
+            handleDebugFileverse(finalScore);
+          }, 1000);
         } else {
           setDisplayScore(Math.floor(Math.random() * 900 + 100));
         }
@@ -400,9 +468,34 @@ export default function CreateIdentity() {
                 </div>
               </div>
 
-              <button onClick={() => navigate("/verify")} className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-medium transition-all duration-200 ease-out hover:brightness-95 hover:shadow-lg active:scale-95">
-                View Identity <ArrowRight className="w-4 h-4" />
-              </button>
+              {/* --- NEW FILEVERSE PROOF BUTTONS --- */}
+              <div className="grid grid-cols-1 gap-3 mt-4 mb-6 max-w-sm mx-auto">
+                <button 
+                  onClick={() => window.open('https://docs.fileverse.io/document/qFhjHXJQZTPyfvRqMGbjZs', '_blank')}
+                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/50 transition-all shadow-sm"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> View on Fileverse
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button onClick={() => navigate("/verify")} className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-medium transition-all duration-200 ease-out hover:brightness-95 hover:shadow-lg active:scale-95">
+                  View Identity <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {(debugLoading || debugDdoc) && (
+                <div className="mt-4 p-4 rounded-xl bg-success/10 border border-success/20 text-success text-sm max-w-sm mx-auto text-center break-all">
+                  {debugLoading ? (
+                    <span>Syncing Score to Fileverse...</span>
+                  ) : (
+                    <>
+                      Score synced to Fileverse! <br/>
+                      <strong>dDoc ID:</strong> {debugDdoc}
+                    </>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

@@ -61,5 +61,29 @@
       "scoreTxHash": "0xea37ae00391fc19313d84400b7dd510021d1fac6561f4c6957e320f0265f3b42",
       "updatedAt": 1773490626460
     }
+  },
+  "0x746f74abba4e7d1f9f6ab09aef7ffb547fb05f8f": {
+    "income": {
+      "ready": true,
+      "type": "income",
+      "platform": "SBI",
+      "proofHash": "325967e5dd9eb87b6cf8422d51a7f5516b17958b83f83a11735eca191a030967",
+      "scoreAssigned": true,
+      "score": 76,
+      "scoreTxHash": "0x51d52a474d23c171d4f152077a48257c0f4ae142f9e54743d444d4574daf2b2f",
+      "updatedAt": 1773518607661
+    }
+  },
+  "0x1588c7c9a274bac1f965d52838093fe871d79ae6": {
+    "income": {
+      "ready": true,
+      "type": "income",
+      "platform": "SBI",
+      "proofHash": "4b1196f73a0558ce635db7334c27f94a99a83409d3a560f2d506febaddbd2b84",
+      "scoreAssigned": true,
+      "score": 79,
+      "scoreTxHash": "0x30bf670e38d933eeb8ac4f7985056ed802126089e042f4482121525aa8ece4bd",
+      "updatedAt": 1773521560904
+    }
   }
 }

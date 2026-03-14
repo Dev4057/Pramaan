@@ -300,6 +300,23 @@ app.post('/api/zk/identity-proof/:walletAddress', (req, res) => {
   return res.json({ ok: true, mode: 'mock-zk', ...pack })
 })
 
+app.post('/api/zk/anon-aadhaar/:walletAddress', async (req, res) => {
+  const { walletAddress } = req.params
+  const { proof } = req.body
+
+  if (!isAddress(walletAddress)) {
+    return res.status(400).json({ error: 'Invalid wallet address' })
+  }
+
+  try {
+    const ddocId = await storeInFileverse(walletAddress, proof, 'anon-aadhaar')
+    return res.json({ success: true, ddocId })
+  } catch (err) {
+    console.error('Anon Aadhaar Fileverse error:', err)
+    return res.status(500).json({ error: 'Failed to save to Fileverse' })
+  }
+})
+
 app.post('/api/zk/income-proof/:walletAddress', (req, res) => {
   const { walletAddress } = req.params
   const { provider = 'sbi' } = req.body || {}
