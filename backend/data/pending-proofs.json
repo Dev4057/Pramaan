@@ -37,5 +37,17 @@
       "expiresAt": 1773441661017,
       "updatedAt": 1773441541017
     }
+  },
+  "0x45095aa9b119988d5cb05092b19f763795c4b1c7": {
+    "income": {
+      "ready": true,
+      "type": "income",
+      "platform": "SBI",
+      "proofHash": "541087ffa00d2c227b4136c445afa607b631c0000424aaed855ce351174582af",
+      "scoreAssigned": true,
+      "score": 75,
+      "scoreTxHash": "0xaef9848f65ed25c5a740eea998273416d51639168af231d75821187b5f3eae6b",
+      "updatedAt": 1773485766599
+    }
   }
 }

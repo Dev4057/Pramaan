@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-/**
- * @title Pramaan
- * @dev Decentralised income verification protocol for India's gig workers.
- * Identity and income both verified via Reclaim Protocol HTTPS proofs.
- * GigScore written on-chain by AI Agent after fetching proof from Fileverse.
- */
-
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function transfer(address recipient, uint256 amount) external returns (bool);
@@ -18,17 +11,15 @@ interface IProofVerifier {
 }
 
 contract Pramaan {
-
-    // --- Structs ---
-
     struct WorkerProfile {
         bool identityVerified;
         bool incomeVerified;
         uint8 gigScore;
         uint256 lastUpdated;
-        string identityDdocId;   // Fileverse doc ID for identity proof
-        string incomeDdocId;     // Fileverse doc ID for income proof
-        string platform;         // Swiggy / Uber / SBI
+        uint256 revision;          // increments on every successful identity/income update
+        string identityDdocId;
+        string incomeDdocId;
+        string platform;
         string identityProofHash;
         string incomeProofHash;
         bytes32 identityNullifier;
@@ -43,9 +34,8 @@ contract Pramaan {
         address worker;
         uint256 timestamp;
         uint256 feePaid;
+        uint256 revision;
     }
-
-    // --- State ---
 
     address public immutable AI_AGENT;
     address public admin;
@@ -54,79 +44,35 @@ contract Pramaan {
     uint256 public verificationFee;
     IProofVerifier public identityVerifier;
     IProofVerifier public incomeVerifier;
+    uint256 public cooldown = 1 days; // minimum time between re-verifications per wallet
 
     mapping(address => WorkerProfile) public workers;
-    mapping(string => bool) public usedProofHashes; // Prevents proof replay attacks
-    mapping(bytes32 => bool) public usedNullifiers; // Prevents proof replay in ZK mode
+    mapping(string => bool) public usedProofHashes;  // still prevent proof replay across wallets
+    mapping(bytes32 => bool) public usedNullifiers;  // for ZK replay protection
     VerificationLog[] public verificationLogs;
 
-    // --- Events ---
-
-    event IdentityVerified(
-        address indexed worker,
-        string ddocId,
-        string proofHash,
-        uint256 timestamp
-    );
-
-    event IncomeVerified(
-        address indexed worker,
-        string platform,
-        string ddocId,
-        string proofHash,
-        uint256 timestamp
-    );
-
-    event ScoreUpdated(
-        address indexed worker,
-        uint8 newScore,
-        uint256 timestamp
-    );
-
-    event WorkerVerified(
-        address indexed lender,
-        address indexed worker,
-        uint256 feePaid,
-        uint256 timestamp
-    );
-
+    event IdentityVerified(address indexed worker, string ddocId, string proofHash, uint256 revision, uint256 timestamp);
+    event IncomeVerified(address indexed worker, string platform, string ddocId, string proofHash, uint256 revision, uint256 timestamp);
+    event ScoreUpdated(address indexed worker, uint8 newScore, uint256 revision, uint256 timestamp);
+    event WorkerVerified(address indexed lender, address indexed worker, uint256 feePaid, uint256 revision, uint256 timestamp);
     event ZKVerifiersUpdated(address indexed identityVerifier, address indexed incomeVerifier);
-
-    event IdentityVerifiedZK(
-        address indexed worker,
-        bytes32 indexed nullifier,
-        bytes32 commitment,
-        uint256 timestamp
-    );
-
-    event IncomeVerifiedZK(
-        address indexed worker,
-        uint256 indexed platformCode,
-        bytes32 indexed nullifier,
-        bytes32 commitment,
-        uint256 timestamp
-    );
-
-    // --- Modifiers ---
+    event CooldownUpdated(uint256 newCooldown);
+    event TreasuryUpdated(address treasury);
+    event VerificationFeeUpdated(uint256 fee);
+    event AdminTransferred(address newAdmin);
+    event AgentUpdated(address newAgent); // optional future use if you add mutable AI agent
 
     modifier onlyAgent() {
-        require(msg.sender == AI_AGENT, "Pramaan: Only AI Agent");
+        require(msg.sender == AI_AGENT, "Only AI Agent");
         _;
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Pramaan: Only admin");
+        require(msg.sender == admin, "Only admin");
         _;
     }
 
-    // --- Constructor ---
-
-    constructor(
-        address _aiAgent,
-        address _treasury,
-        address _usdcAddress,
-        uint256 _verificationFee
-    ) {
+    constructor(address _aiAgent, address _treasury, address _usdcAddress, uint256 _verificationFee) {
         AI_AGENT = _aiAgent;
         admin = msg.sender;
         treasury = _treasury;
@@ -134,186 +80,175 @@ contract Pramaan {
         verificationFee = _verificationFee;
     }
 
+    // --- Admin controls ---
     function setZKVerifiers(address _identityVerifier, address _incomeVerifier) external onlyAdmin {
-        require(_identityVerifier != address(0), "Pramaan: Invalid identity verifier");
-        require(_incomeVerifier != address(0), "Pramaan: Invalid income verifier");
+        require(_identityVerifier != address(0) && _incomeVerifier != address(0), "Invalid verifier");
         identityVerifier = IProofVerifier(_identityVerifier);
         incomeVerifier = IProofVerifier(_incomeVerifier);
         emit ZKVerifiersUpdated(_identityVerifier, _incomeVerifier);
     }
 
+    function setCooldown(uint256 _cooldown) external onlyAdmin {
+        cooldown = _cooldown;
+        emit CooldownUpdated(_cooldown);
+    }
+
+    function setTreasury(address _treasury) external onlyAdmin {
+        require(_treasury != address(0), "zero treasury");
+        treasury = _treasury;
+        emit TreasuryUpdated(_treasury);
+    }
+
+    function setVerificationFee(uint256 _fee) external onlyAdmin {
+        verificationFee = _fee;
+        emit VerificationFeeUpdated(_fee);
+    }
+
+    // --- Internal helpers ---
     function _validateWalletSignal(uint256 walletSignal) internal view returns (bool) {
         return address(uint160(walletSignal)) == msg.sender;
     }
 
-    // --- Core Functions ---
-
-    /**
-     * @dev Step 1: Worker submits Reclaim identity proof (Aadhaar DigiLocker)
-     * Proof is stored encrypted on Fileverse. Only ddocId goes on-chain.
-     */
-    function submitIdentity(
-        string calldata _ddocId,
-        string calldata _proofHash
-    ) external {
-        require(!workers[msg.sender].identityVerified, "Pramaan: Identity already verified");
-        require(!usedProofHashes[_proofHash], "Pramaan: Proof already used");
-        require(bytes(_ddocId).length > 0, "Pramaan: Invalid ddocId");
-        require(bytes(_proofHash).length > 0, "Pramaan: Invalid proof hash");
-
-        workers[msg.sender].identityVerified = true;
-        workers[msg.sender].identityDdocId = _ddocId;
-        workers[msg.sender].identityProofHash = _proofHash;
-        workers[msg.sender].exists = true;
-        usedProofHashes[_proofHash] = true;
-
-        emit IdentityVerified(msg.sender, _ddocId, _proofHash, block.timestamp);
+    function _enforceCooldown(address wallet) internal view {
+        WorkerProfile memory profile = workers[wallet];
+        if (profile.lastUpdated > 0) {
+            require(block.timestamp >= profile.lastUpdated + cooldown, "Cooldown active");
+        }
     }
 
-    /**
-     * @dev Step 2: Worker submits Reclaim income proof (Swiggy / Uber / SBI)
-     * Proof is stored encrypted on Fileverse. Only ddocId goes on-chain.
-     */
-    function submitIncome(
-        string calldata _ddocId,
-        string calldata _platform,
-        string calldata _proofHash
-    ) external {
-        require(workers[msg.sender].identityVerified, "Pramaan: Verify identity first");
-        require(!usedProofHashes[_proofHash], "Pramaan: Proof already used");
-        require(bytes(_ddocId).length > 0, "Pramaan: Invalid ddocId");
-        require(bytes(_platform).length > 0, "Pramaan: Invalid platform");
-
-        workers[msg.sender].incomeVerified = true;
-        workers[msg.sender].incomeDdocId = _ddocId;
-        workers[msg.sender].platform = _platform;
-        workers[msg.sender].incomeProofHash = _proofHash;
-        usedProofHashes[_proofHash] = true;
-
-        emit IncomeVerified(msg.sender, _platform, _ddocId, _proofHash, block.timestamp);
+    function _bumpRevision(address wallet) internal {
+        workers[wallet].revision += 1;
+        workers[wallet].lastUpdated = block.timestamp;
+        workers[wallet].exists = true;
     }
 
-    /**
-     * @dev ZK Step 1: verifies identity proof and stores nullifier + commitment.
-     * publicSignals schema:
-     * [0] wallet (uint160 packed in uint256)
-     * [1] isAdult (must be 1)
-     * [2] isIndian (must be 1)
-     * [3] nullifier
-     * [4] identityCommitment
-     */
-    function submitIdentityZK(
-        bytes calldata proof,
-        uint256[] calldata publicSignals,
-        string calldata _ddocId
-    ) external {
-        require(address(identityVerifier) != address(0), "Pramaan: Identity verifier not set");
-        require(!workers[msg.sender].identityVerified, "Pramaan: Identity already verified");
-        require(publicSignals.length == 5, "Pramaan: Invalid identity public signals");
-        require(bytes(_ddocId).length > 0, "Pramaan: Invalid ddocId");
-        require(_validateWalletSignal(publicSignals[0]), "Pramaan: Wallet mismatch");
-        require(publicSignals[1] == 1, "Pramaan: Age check failed");
-        require(publicSignals[2] == 1, "Pramaan: Country check failed");
-        require(identityVerifier.verifyProof(proof, publicSignals), "Pramaan: Invalid identity ZK proof");
+    // --- Core: Identity (non-ZK) ---
+    function submitIdentity(string calldata _ddocId, string calldata _proofHash) external {
+        require(bytes(_ddocId).length > 0 && bytes(_proofHash).length > 0, "Invalid inputs");
+        require(!usedProofHashes[_proofHash], "Proof already used");
+        _enforceCooldown(msg.sender);
+
+        WorkerProfile storage w = workers[msg.sender];
+        usedProofHashes[_proofHash] = true;
+
+        w.identityVerified = true;
+        w.identityDdocId = _ddocId;
+        w.identityProofHash = _proofHash;
+        _bumpRevision(msg.sender);
+
+        emit IdentityVerified(msg.sender, _ddocId, _proofHash, w.revision, block.timestamp);
+    }
+
+    // --- Core: Income (non-ZK) ---
+    function submitIncome(string calldata _ddocId, string calldata _platform, string calldata _proofHash) external {
+        require(bytes(_ddocId).length > 0 && bytes(_platform).length > 0, "Invalid inputs");
+        require(workers[msg.sender].identityVerified, "Verify identity first");
+        require(!usedProofHashes[_proofHash], "Proof already used");
+        _enforceCooldown(msg.sender);
+
+        WorkerProfile storage w = workers[msg.sender];
+        usedProofHashes[_proofHash] = true;
+
+        w.incomeVerified = true;
+        w.incomeDdocId = _ddocId;
+        w.platform = _platform;
+        w.incomeProofHash = _proofHash;
+        _bumpRevision(msg.sender);
+
+        emit IncomeVerified(msg.sender, _platform, _ddocId, _proofHash, w.revision, block.timestamp);
+    }
+
+    // --- Core: Identity ZK ---
+    function submitIdentityZK(bytes calldata proof, uint256[] calldata publicSignals, string calldata _ddocId) external {
+        require(address(identityVerifier) != address(0), "Identity verifier not set");
+        require(publicSignals.length == 5, "Invalid public signals");
+        require(bytes(_ddocId).length > 0, "Invalid ddocId");
+        require(_validateWalletSignal(publicSignals[0]), "Wallet mismatch");
+        require(publicSignals[1] == 1 && publicSignals[2] == 1, "Checks failed");
+        require(identityVerifier.verifyProof(proof, publicSignals), "Invalid ZK proof");
 
         bytes32 nullifier = bytes32(publicSignals[3]);
         bytes32 commitment = bytes32(publicSignals[4]);
-        require(!usedNullifiers[nullifier], "Pramaan: Nullifier already used");
+        require(!usedNullifiers[nullifier], "Nullifier used");
+        _enforceCooldown(msg.sender);
 
-        workers[msg.sender].identityVerified = true;
-        workers[msg.sender].identityDdocId = _ddocId;
-        workers[msg.sender].identityProofHash = "zk:identity";
-        workers[msg.sender].identityNullifier = nullifier;
-        workers[msg.sender].identityCommitment = commitment;
-        workers[msg.sender].exists = true;
+        WorkerProfile storage w = workers[msg.sender];
         usedNullifiers[nullifier] = true;
 
-        emit IdentityVerifiedZK(msg.sender, nullifier, commitment, block.timestamp);
+        w.identityVerified = true;
+        w.identityDdocId = _ddocId;
+        w.identityProofHash = "zk:identity";
+        w.identityNullifier = nullifier;
+        w.identityCommitment = commitment;
+        _bumpRevision(msg.sender);
+
+        emit IdentityVerified(msg.sender, _ddocId, "zk:identity", w.revision, block.timestamp);
     }
 
-    /**
-     * @dev ZK Step 2: verifies income proof and stores nullifier + commitment.
-     * publicSignals schema:
-     * [0] wallet (uint160 packed in uint256)
-     * [1] incomeFloorMet (must be 1)
-     * [2] platformCode (1=SBI, 2=Uber)
-     * [3] nullifier
-     * [4] incomeCommitment
-     */
-    function submitIncomeZK(
-        bytes calldata proof,
-        uint256[] calldata publicSignals,
-        string calldata _ddocId,
-        string calldata _platform
-    ) external {
-        require(address(incomeVerifier) != address(0), "Pramaan: Income verifier not set");
-        require(workers[msg.sender].identityVerified, "Pramaan: Verify identity first");
-        require(publicSignals.length == 5, "Pramaan: Invalid income public signals");
-        require(bytes(_ddocId).length > 0, "Pramaan: Invalid ddocId");
-        require(bytes(_platform).length > 0, "Pramaan: Invalid platform");
-        require(_validateWalletSignal(publicSignals[0]), "Pramaan: Wallet mismatch");
-        require(publicSignals[1] == 1, "Pramaan: Income threshold failed");
-        require(incomeVerifier.verifyProof(proof, publicSignals), "Pramaan: Invalid income ZK proof");
+    // --- Core: Income ZK ---
+    function submitIncomeZK(bytes calldata proof, uint256[] calldata publicSignals, string calldata _ddocId, string calldata _platform) external {
+        require(address(incomeVerifier) != address(0), "Income verifier not set");
+        require(publicSignals.length == 5, "Invalid public signals");
+        require(bytes(_ddocId).length > 0 && bytes(_platform).length > 0, "Invalid inputs");
+        require(_validateWalletSignal(publicSignals[0]), "Wallet mismatch");
+        require(publicSignals[1] == 1, "Income threshold failed");
+        require(incomeVerifier.verifyProof(proof, publicSignals), "Invalid ZK proof");
 
         bytes32 nullifier = bytes32(publicSignals[3]);
         bytes32 commitment = bytes32(publicSignals[4]);
-        require(!usedNullifiers[nullifier], "Pramaan: Nullifier already used");
+        require(!usedNullifiers[nullifier], "Nullifier used");
+        _enforceCooldown(msg.sender);
 
-        workers[msg.sender].incomeVerified = true;
-        workers[msg.sender].incomeDdocId = _ddocId;
-        workers[msg.sender].platform = _platform;
-        workers[msg.sender].incomeProofHash = "zk:income";
-        workers[msg.sender].incomeNullifier = nullifier;
-        workers[msg.sender].incomeCommitment = commitment;
+        WorkerProfile storage w = workers[msg.sender];
         usedNullifiers[nullifier] = true;
 
-        emit IncomeVerifiedZK(msg.sender, publicSignals[2], nullifier, commitment, block.timestamp);
+        w.incomeVerified = true;
+        w.incomeDdocId = _ddocId;
+        w.platform = _platform;
+        w.incomeProofHash = "zk:income";
+        w.incomeNullifier = nullifier;
+        w.incomeCommitment = commitment;
+        _bumpRevision(msg.sender);
+
+        emit IncomeVerified(msg.sender, _platform, _ddocId, "zk:income", w.revision, block.timestamp);
     }
 
-    /**
-     * @dev Step 3: AI Agent writes GigScore after analyzing Fileverse proof
-     */
+    // --- GigScore ---
     function setGigScore(address _worker, uint8 _score) external onlyAgent {
-        require(workers[_worker].exists, "Pramaan: Worker not found");
-        require(workers[_worker].incomeVerified, "Pramaan: Income not verified");
-        require(_score <= 100, "Pramaan: Score must be 0-100");
+        WorkerProfile storage w = workers[_worker];
+        require(w.exists && w.incomeVerified, "Income not verified");
+        require(_score <= 100, "Score 0-100");
 
-        workers[_worker].gigScore = _score;
-        workers[_worker].lastUpdated = block.timestamp;
+        w.gigScore = _score;
+        _bumpRevision(_worker);
 
-        emit ScoreUpdated(_worker, _score, block.timestamp);
+        emit ScoreUpdated(_worker, _score, w.revision, block.timestamp);
     }
 
-    /**
-     * @dev Step 4: Lender pays USDC fee to verify worker GigScore
-     */
+    // --- Lender verify ---
     function verifyWorker(address _workerAddress) external {
         WorkerProfile memory profile = workers[_workerAddress];
-        require(profile.exists, "Pramaan: Worker not found");
-        require(profile.identityVerified && profile.incomeVerified, "Pramaan: Profile incomplete");
-        require(profile.gigScore > 0, "Pramaan: Score not yet assigned");
-        require(
-            block.timestamp - profile.lastUpdated < 90 days,
-            "Pramaan: Score expired"
+        require(profile.exists, "Worker not found");
+        require(profile.identityVerified && profile.incomeVerified, "Profile incomplete");
+        require(profile.gigScore > 0, "Score not set");
+        require(block.timestamp - profile.lastUpdated < 90 days, "Score expired");
+
+        require(usdc.transferFrom(msg.sender, treasury, verificationFee), "Fee transfer failed");
+
+        verificationLogs.push(
+            VerificationLog({
+                lender: msg.sender,
+                worker: _workerAddress,
+                timestamp: block.timestamp,
+                feePaid: verificationFee,
+                revision: profile.revision
+            })
         );
 
-        require(
-            usdc.transferFrom(msg.sender, treasury, verificationFee),
-            "Pramaan: Fee transfer failed"
-        );
-
-        verificationLogs.push(VerificationLog({
-            lender: msg.sender,
-            worker: _workerAddress,
-            timestamp: block.timestamp,
-            feePaid: verificationFee
-        }));
-
-        emit WorkerVerified(msg.sender, _workerAddress, verificationFee, block.timestamp);
+        emit WorkerVerified(msg.sender, _workerAddress, verificationFee, profile.revision, block.timestamp);
     }
 
-    // --- View Functions ---
-
+    // --- Views ---
     function isVerified(address _worker) external view returns (bool) {
         return workers[_worker].identityVerified && workers[_worker].incomeVerified;
     }

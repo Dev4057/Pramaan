@@ -13,6 +13,8 @@ const USE_MOCK_ZK = import.meta.env.VITE_USE_MOCK_ZK === 'true'
 const USE_ZK_SUBMISSION = import.meta.env.VITE_USE_ZK_SUBMISSION === 'true'
 const ENABLE_MOCK_IDENTITY_BUTTON = import.meta.env.VITE_ENABLE_MOCK_IDENTITY_BUTTON === 'true'
 const EXPLORER_TX_BASE_URL = import.meta.env.VITE_EXPLORER_TX_BASE_URL || 'https://sepolia.etherscan.io/tx/'
+const IDENTITY_ZK_SELECTOR = '8b4b517d'
+const INCOME_ZK_SELECTOR = '227ac1a0'
 
 const ZK_METHOD_ABI = [
   {
@@ -65,6 +67,46 @@ const WORKER_GETTER_ABI = [
   }
 ]
 
+function normalizeWorkerProfile(profile) {
+  if (!profile) return null
+
+  if (Array.isArray(profile)) {
+    const hasExtendedLayout = profile.length >= 14
+    if (hasExtendedLayout) {
+      return {
+        identityVerified: Boolean(profile[0]),
+        incomeVerified: Boolean(profile[1]),
+        gigScore: Number(profile[2] || 0),
+        platform: profile[7] || '',
+        identityDdocId: profile[5] || '',
+        incomeDdocId: profile[6] || ''
+      }
+    }
+
+    return {
+      identityVerified: Boolean(profile[0]),
+      incomeVerified: Boolean(profile[1]),
+      gigScore: Number(profile[2] || 0),
+      platform: profile[6] || '',
+      identityDdocId: profile[4] || '',
+      incomeDdocId: profile[5] || ''
+    }
+  }
+
+  if (profile && typeof profile === 'object') {
+    return {
+      identityVerified: Boolean(profile.identityVerified),
+      incomeVerified: Boolean(profile.incomeVerified),
+      gigScore: Number(profile.gigScore || 0),
+      platform: profile.platform || '',
+      identityDdocId: profile.identityDdocId || '',
+      incomeDdocId: profile.incomeDdocId || ''
+    }
+  }
+
+  return null
+}
+
 const CONTRACT_ABI = [...PramaanABI.abi, ...ZK_METHOD_ABI]
 
 export default function WorkerDashboard() {
@@ -114,7 +156,9 @@ export default function WorkerDashboard() {
   const [scoreTxState, setScoreTxState] = useState('idle')
   const [preflightError, setPreflightError] = useState(null)
   const [identityMethod, setIdentityMethod] = useState('anon')
+  const [showAnonLogin, setShowAnonLogin] = useState(false)
   const [mockProfile, setMockProfile] = useState(null)
+  const [zkMethodsSupported, setZkMethodsSupported] = useState(null)
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth))
 
   useEffect(() => {
@@ -128,9 +172,44 @@ export default function WorkerDashboard() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  useEffect(() => {
+    setShowAnonLogin(false)
+  }, [address])
+
+  useEffect(() => {
+    if (anonAadhaar?.status === 'logged-in') {
+      setShowAnonLogin(false)
+    }
+  }, [anonAadhaar?.status])
+
   const isMobile = viewportWidth < 768
   const qrSize = isMobile ? 160 : 200
   const mockAssignedQrSize = isMobile ? 132 : 160
+  const mockIncomeModeLabel = USE_ZK_SUBMISSION
+    ? (zkMethodsSupported === false ? 'Mock (legacy fallback)' : 'Mock ZK')
+    : 'Mock'
+
+  async function detectZkMethodSupport() {
+    if (!publicClient || !CONTRACT_ADDRESS) {
+      setZkMethodsSupported(false)
+      return false
+    }
+
+    try {
+      const bytecode = await publicClient.getBytecode({ address: CONTRACT_ADDRESS })
+      const code = String(bytecode || '').toLowerCase()
+      const supports = code.includes(IDENTITY_ZK_SELECTOR) && code.includes(INCOME_ZK_SELECTOR)
+      setZkMethodsSupported(supports)
+      return supports
+    } catch (_) {
+      setZkMethodsSupported(false)
+      return false
+    }
+  }
+
+  useEffect(() => {
+    detectZkMethodSupport()
+  }, [publicClient, CONTRACT_ADDRESS])
 
   function renderTxStatus(state, txHash, label) {
     if (state === 'idle') return null
@@ -184,6 +263,26 @@ export default function WorkerDashboard() {
     }
   }
 
+  async function waitForReceiptWithChainFallback(hash, verificationType) {
+    if (!publicClient) return true
+
+    try {
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash,
+        timeout: 120000
+      })
+      return receipt.status === 'success'
+    } catch (_) {
+      if (verificationType === 'identity') {
+        return await isIdentityAlreadyVerifiedOnChain()
+      }
+      if (verificationType === 'income') {
+        return await isIncomeAlreadyVerifiedOnChain()
+      }
+      return false
+    }
+  }
+
   useEffect(() => {
     if (!address || !USE_MOCK_ZK) return
 
@@ -207,20 +306,18 @@ export default function WorkerDashboard() {
   }, [address])
 
   async function isIdentityAlreadyVerifiedOnChain() {
+    const profile = await getWorkerProfileOnChain()
+    if (profile) return Boolean(profile.identityVerified)
+
     if (!publicClient || !address) return false
     try {
-      const profile = await publicClient.readContract({
+      const fullyVerified = await publicClient.readContract({
         address: CONTRACT_ADDRESS,
-        abi: WORKER_GETTER_ABI,
-        functionName: 'workers',
+        abi: PramaanABI.abi,
+        functionName: 'isVerified',
         args: [address]
       })
-
-      if (Array.isArray(profile)) return Boolean(profile[0])
-      if (profile && typeof profile === 'object' && 'identityVerified' in profile) {
-        return Boolean(profile.identityVerified)
-      }
-      return false
+      return Boolean(fullyVerified)
     } catch (_) {
       return false
     }
@@ -229,34 +326,29 @@ export default function WorkerDashboard() {
   async function getWorkerProfileOnChain() {
     if (!publicClient || !address) return null
     try {
-      const profile = await publicClient.readContract({
+      const extendedProfile = await publicClient.readContract({
         address: CONTRACT_ADDRESS,
         abi: WORKER_GETTER_ABI,
         functionName: 'workers',
         args: [address]
       })
 
-      if (Array.isArray(profile)) {
-        return {
-          identityVerified: Boolean(profile[0]),
-          incomeVerified: Boolean(profile[1]),
-          gigScore: Number(profile[2] || 0),
-          platform: profile[6] || '',
-          identityDdocId: profile[4] || '',
-          incomeDdocId: profile[5] || ''
-        }
-      }
+      const normalizedExtended = normalizeWorkerProfile(extendedProfile)
+      if (normalizedExtended) return normalizedExtended
+    } catch (_) {
+      // Try legacy ABI shape used by older deployments.
+    }
 
-      if (profile && typeof profile === 'object') {
-        return {
-          identityVerified: Boolean(profile.identityVerified),
-          incomeVerified: Boolean(profile.incomeVerified),
-          gigScore: Number(profile.gigScore || 0),
-          platform: profile.platform || '',
-          identityDdocId: profile.identityDdocId || '',
-          incomeDdocId: profile.incomeDdocId || ''
-        }
-      }
+    try {
+      const legacyProfile = await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: PramaanABI.abi,
+        functionName: 'workers',
+        args: [address]
+      })
+
+      const normalizedLegacy = normalizeWorkerProfile(legacyProfile)
+      if (normalizedLegacy) return normalizedLegacy
     } catch (_) {
       // Best effort sync from chain.
     }
@@ -335,8 +427,9 @@ export default function WorkerDashboard() {
     return () => clearInterval(interval)
   }, [identityMethod, identityQR, step1Done, address])
 
-  async function hashAnonProof(proof) {
+  async function hashAnonProof(proof, walletAddress) {
     const payload = JSON.stringify({
+      walletAddress: (walletAddress || '').toLowerCase(),
       nullifier: proof.nullifier,
       timestamp: proof.timestamp,
       ageAbove18: proof.ageAbove18 ?? proof.revealAgeAbove18 ?? 0
@@ -400,11 +493,9 @@ export default function WorkerDashboard() {
       })
       console.log('Identity tx:', hash)
       setIdentityTxHash(hash)
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        if (receipt.status !== 'success') {
-          throw new Error('Identity transaction failed on-chain')
-        }
+      const ok = await waitForReceiptWithChainFallback(hash, 'identity')
+      if (!ok) {
+        throw new Error('Identity transaction failed on-chain')
       }
       setIdentityTxState('success')
       setStep1Done(true)
@@ -439,11 +530,9 @@ export default function WorkerDashboard() {
       })
       console.log('Identity ZK tx:', hash)
       setIdentityTxHash(hash)
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        if (receipt.status !== 'success') {
-          throw new Error('Identity ZK transaction failed on-chain')
-        }
+      const ok = await waitForReceiptWithChainFallback(hash, 'identity')
+      if (!ok) {
+        throw new Error('Identity ZK transaction failed on-chain')
       }
       setIdentityTxState('success')
       setStep1Done(true)
@@ -461,8 +550,32 @@ export default function WorkerDashboard() {
       return
     }
 
+    if (anonAadhaar?.status !== 'logged-in') {
+      setError('Anon Aadhaar is not logged in for this wallet yet. Open Anon Aadhaar Login and create a fresh proof.')
+      return
+    }
+
     try {
-      const proofHash = await hashAnonProof(latestProof.proof)
+      const proofHash = await hashAnonProof(latestProof.proof, address)
+
+      if (publicClient) {
+        try {
+          const alreadyUsed = await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: PramaanABI.abi,
+            functionName: 'usedProofHashes',
+            args: [proofHash]
+          })
+
+          if (alreadyUsed) {
+            throw new Error('This Anon proof hash was already used. Open Anon Aadhaar Login and create a fresh proof for the current wallet.')
+          }
+        } catch (lookupErr) {
+          const msg = String(lookupErr?.message || '')
+          if (msg.includes('already used')) throw lookupErr
+        }
+      }
+
       const ddocId = `anon-aadhaar:${address.toLowerCase()}:${Date.now()}`
       await handleSubmitIdentity(ddocId, proofHash)
       setIdentityData({ ddocId, method: 'anon-aadhaar' })
@@ -491,7 +604,8 @@ export default function WorkerDashboard() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Mock identity verification failed')
 
-      if (USE_ZK_SUBMISSION) {
+      const canUseZkSubmission = USE_ZK_SUBMISSION ? await detectZkMethodSupport() : false
+      if (USE_ZK_SUBMISSION && canUseZkSubmission) {
         const zkRes = await fetch(`${BACKEND_URL}/api/zk/identity-proof/${address}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
@@ -507,6 +621,10 @@ export default function WorkerDashboard() {
       } else {
         await handleSubmitIdentity(data.ddocId, data.proofHash)
         setIdentityData({ ddocId: data.ddocId, method: 'mock-zk' })
+
+        if (USE_ZK_SUBMISSION) {
+          setPreflightError('Deployed contract does not expose submitIdentityZK. Used legacy identity submission automatically.')
+        }
       }
     } catch (err) {
       setError('Mock identity verification failed: ' + err.message)
@@ -576,7 +694,8 @@ export default function WorkerDashboard() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Mock income verification failed')
 
-      if (USE_ZK_SUBMISSION) {
+      const canUseZkSubmission = USE_ZK_SUBMISSION ? await detectZkMethodSupport() : false
+      if (USE_ZK_SUBMISSION && canUseZkSubmission) {
         const zkRes = await fetch(`${BACKEND_URL}/api/zk/income-proof/${address}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -594,6 +713,10 @@ export default function WorkerDashboard() {
       } else {
         await handleSubmitIncome(data.ddocId, data.platform, data.proofHash)
         setIncomeData({ ddocId: data.ddocId, platform: data.platform, payload: data.payload, method: 'mock-zk' })
+
+        if (USE_ZK_SUBMISSION) {
+          setPreflightError('Deployed contract does not expose submitIncomeZK. Used legacy income submission automatically.')
+        }
       }
     } catch (err) {
       setError('Mock income verification failed: ' + err.message)
@@ -630,11 +753,9 @@ export default function WorkerDashboard() {
       })
       console.log('Income ZK tx:', hash)
       setIncomeTxHash(hash)
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        if (receipt.status !== 'success') {
-          throw new Error('Income ZK transaction failed on-chain')
-        }
+      const ok = await waitForReceiptWithChainFallback(hash, 'income')
+      if (!ok) {
+        throw new Error('Income ZK transaction failed on-chain')
       }
       setIncomeTxState('success')
       setStep2Done(true)
@@ -680,11 +801,9 @@ export default function WorkerDashboard() {
       })
       console.log('Income tx:', hash)
       setIncomeTxHash(hash)
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        if (receipt.status !== 'success') {
-          throw new Error('Income transaction failed on-chain')
-        }
+      const ok = await waitForReceiptWithChainFallback(hash, 'income')
+      if (!ok) {
+        throw new Error('Income transaction failed on-chain')
       }
       setIncomeTxState('success')
       setStep2Done(true)
@@ -773,6 +892,7 @@ export default function WorkerDashboard() {
               <button
                 onClick={() => {
                   setIdentityMethod('mock')
+                  setShowAnonLogin(false)
                   setIdentityQR(null)
                   setError(null)
                 }}
@@ -784,6 +904,7 @@ export default function WorkerDashboard() {
             <button
               onClick={() => {
                 setIdentityMethod('anon')
+                setShowAnonLogin(false)
                 setIdentityQR(null)
                 setError(null)
               }}
@@ -794,6 +915,7 @@ export default function WorkerDashboard() {
             <button
               onClick={() => {
                 setIdentityMethod('reclaim')
+                setShowAnonLogin(false)
                 setError(null)
               }}
               style={{ background: identityMethod === 'reclaim' ? ui.accentSoft : 'transparent', color: identityMethod === 'reclaim' ? ui.accent : ui.muted, border: `1px solid ${ui.border}`, padding: '6px 14px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px' }}
@@ -860,16 +982,33 @@ export default function WorkerDashboard() {
                 </div>
               </div>
             )}
-            <LogInWithAnonAadhaar
-              nullifierSeed={ANON_NULLIFIER_SEED}
-              fieldsToReveal={['revealAgeAbove18']}
-              signal={address || '0x0'}
-            />
+            {anonAadhaar?.status !== 'logged-in' && (
+              <button
+                onClick={() => setShowAnonLogin((prev) => !prev)}
+                style={{ marginTop: '6px', background: showAnonLogin ? ui.accentSoft : '#fff', color: showAnonLogin ? ui.accent : ui.text, border: `1px solid ${ui.border}`, padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}
+              >
+                {showAnonLogin ? 'Hide Anon Aadhaar Login' : 'Open Anon Aadhaar Login'}
+              </button>
+            )}
+
+            {showAnonLogin && anonAadhaar?.status !== 'logged-in' && (
+              <div style={{ marginTop: '10px' }}>
+                <LogInWithAnonAadhaar
+                  nullifierSeed={ANON_NULLIFIER_SEED}
+                  fieldsToReveal={['revealAgeAbove18']}
+                  signal={address || '0x0'}
+                />
+              </div>
+            )}
             <p style={{ color: ui.muted, fontSize: '12px', marginTop: '8px' }}>
               Anon Aadhaar status: {anonAadhaar?.status || 'idle'}
             </p>
             <p style={{ color: ui.muted, fontSize: '12px', marginTop: '6px' }}>
               If you see "Invalid QR Code", your QR source does not match the active mode above.
+            </p>
+
+            <p style={{ color: ui.muted, fontSize: '12px', marginTop: '6px' }}>
+              If you switched wallet accounts, open Anon Aadhaar Login again and generate a fresh proof before submitting.
             </p>
 
             {anonAadhaar?.status === 'logged-in' && (
@@ -941,6 +1080,12 @@ export default function WorkerDashboard() {
 
         {renderTxStatus(incomeTxState, incomeTxHash, 'Income transaction')}
 
+        {USE_MOCK_ZK && USE_ZK_SUBMISSION && zkMethodsSupported === false && (
+          <div style={{ background: ui.warnSoft, border: '1px solid #e5cfab', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', color: ui.warn, fontSize: '12px' }}>
+            This deployed contract does not support ZK income methods. Falling back to legacy on-chain income submission.
+          </div>
+        )}
+
         {step1Done && !step2Done && !incomeQR && !submitting && (
           <div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -964,7 +1109,7 @@ export default function WorkerDashboard() {
               disabled={incomeLoading}
               style={{ background: ui.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
             >
-              {incomeLoading ? 'Generating...' : USE_MOCK_ZK ? `Verify ${selectedProvider === 'sbi' ? 'SBI' : 'Uber'} Income (Mock ZK)` : `Verify ${selectedProvider === 'sbi' ? 'SBI' : 'Uber'} Income`}
+              {incomeLoading ? 'Generating...' : USE_MOCK_ZK ? `Verify ${selectedProvider === 'sbi' ? 'SBI' : 'Uber'} Income (${mockIncomeModeLabel})` : `Verify ${selectedProvider === 'sbi' ? 'SBI' : 'Uber'} Income`}
             </button>
           </div>
         )}

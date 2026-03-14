@@ -1,179 +1,93 @@
 {
   "default": {
-    "workerTag": "DEFAULT-WORKER",
-    "country": "IN",
     "ageAbove18": true,
-    "anonTestQrData": "anon-aadhaar-test:default",
+    "country": "IN",
+    "anonTestQrData": "QR-DEFAULT",
+    "workerTag": "fallback",
     "income": {
-      "sbi": {
-        "monthlyIncomeInr": 42000,
-        "accountAgeMonths": 18
-      },
-      "uber": {
-        "averageRating": 4.86,
-        "completedTrips": 1380
-      }
+      "sbi": { "salary": 45000, "months": 6, "txCount": 24, "lastCredit": "2026-02-15" },
+      "uber": { "trips": 120, "rating": 4.84, "weeklyEarnings": 9500 }
     }
   },
   "workers": {
     "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7": {
-      "workerTag": "WORKER-001",
-      "country": "IN",
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-001",
+      "country": "IN",
+      "anonTestQrData": "QR-Dev",
+      "workerTag": "dev",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 51000,
-          "accountAgeMonths": 24
-        },
-        "uber": {
-          "averageRating": 4.92,
-          "completedTrips": 1824
-        }
+        "sbi": { "salary": 52000, "months": 9, "txCount": 36, "lastCredit": "2026-02-20" },
+        "uber": { "trips": 140, "rating": 4.90, "weeklyEarnings": 10500 }
       }
     },
-    "0x1111111111111111111111111111111111111111": {
-      "workerTag": "WORKER-002",
-      "country": "IN",
+    "0x1588c7C9A274BaC1f965D52838093FE871D79AE6": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-002",
+      "country": "IN",
+      "anonTestQrData": "QR-Dhruv",
+      "workerTag": "dhruv",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 38500,
-          "accountAgeMonths": 15
-        },
-        "uber": {
-          "averageRating": 4.75,
-          "completedTrips": 910
-        }
+        "sbi": { "salary": 48000, "months": 8, "txCount": 30, "lastCredit": "2026-02-18" },
+        "uber": { "trips": 110, "rating": 4.78, "weeklyEarnings": 8800 }
       }
     },
-    "0x2222222222222222222222222222222222222222": {
-      "workerTag": "WORKER-003",
-      "country": "IN",
+    "0x1866F3d90aBB4dFBA180206f064De5Bd74F5F2BA": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-003",
+      "country": "IN",
+      "anonTestQrData": "QR-Vraj",
+      "workerTag": "vraj",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 46750,
-          "accountAgeMonths": 22
-        },
-        "uber": {
-          "averageRating": 4.88,
-          "completedTrips": 1412
-        }
+        "sbi": { "salary": 33000, "months": 4, "txCount": 16, "lastCredit": "2026-02-05" },
+        "uber": { "trips": 70, "rating": 4.60, "weeklyEarnings": 6200 }
       }
     },
-    "0x3333333333333333333333333333333333333333": {
-      "workerTag": "WORKER-004",
-      "country": "IN",
+    "0x45095Aa9B119988d5Cb05092b19F763795c4b1C7": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-004",
+      "country": "IN",
+      "anonTestQrData": "QR-Avdhoot",
+      "workerTag": "avdhoot",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 40200,
-          "accountAgeMonths": 12
-        },
-        "uber": {
-          "averageRating": 4.69,
-          "completedTrips": 760
-        }
+        "sbi": { "salary": 40000, "months": 7, "txCount": 28, "lastCredit": "2026-02-12" },
+        "uber": { "trips": 90, "rating": 4.71, "weeklyEarnings": 7600 }
       }
     },
-    "0x4444444444444444444444444444444444444444": {
-      "workerTag": "WORKER-005",
-      "country": "IN",
+    "0x746F74aBba4E7d1F9F6aB09aEF7Ffb547fB05F8f": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-005",
+      "country": "IN",
+      "anonTestQrData": "QR-Suha",
+      "workerTag": "suha",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 59500,
-          "accountAgeMonths": 30
-        },
-        "uber": {
-          "averageRating": 4.95,
-          "completedTrips": 2201
-        }
+        "sbi": { "salary": 51000, "months": 9, "txCount": 34, "lastCredit": "2026-02-19" },
+        "uber": { "trips": 130, "rating": 4.82, "weeklyEarnings": 9900 }
       }
     },
-    "0x5555555555555555555555555555555555555555": {
-      "workerTag": "WORKER-006",
-      "country": "IN",
+    "0x304BBcBDEE63b024F1F9B39B46828b6faC3DE301": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-006",
+      "country": "IN",
+      "anonTestQrData": "QR-Aakash",
+      "workerTag": "aakash",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 34800,
-          "accountAgeMonths": 9
-        },
-        "uber": {
-          "averageRating": 4.6,
-          "completedTrips": 640
-        }
+        "sbi": { "salary": 52000, "months": 9, "txCount": 36, "lastCredit": "2026-02-20" },
+        "uber": { "trips": 140, "rating": 4.90, "weeklyEarnings": 10500 }
       }
     },
-    "0x6666666666666666666666666666666666666666": {
-      "workerTag": "WORKER-007",
-      "country": "IN",
+    "0x7a893BCcCBba96F57d12D82d6225cED53168748e": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-007",
+      "country": "IN",
+      "anonTestQrData": "QR-Rakesh",
+      "workerTag": "rakesh",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 42800,
-          "accountAgeMonths": 17
-        },
-        "uber": {
-          "averageRating": 4.81,
-          "completedTrips": 1098
-        }
+        "sbi": { "salary": 37000, "months": 5, "txCount": 20, "lastCredit": "2026-02-10" },
+        "uber": { "trips": 80, "rating": 4.65, "weeklyEarnings": 6900 }
       }
     },
-    "0x7777777777777777777777777777777777777777": {
-      "workerTag": "WORKER-008",
-      "country": "IN",
+    "0x2a1C8C86b321328CE91E0557Bb148cDc7B61eAba": {
       "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-008",
-      "income": {
-        "sbi": {
-          "monthlyIncomeInr": 45200,
-          "accountAgeMonths": 19
-        },
-        "uber": {
-          "averageRating": 4.83,
-          "completedTrips": 1255
-        }
-      }
-    },
-    "0x8888888888888888888888888888888888888888": {
-      "workerTag": "WORKER-009",
       "country": "IN",
-      "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-009",
+      "anonTestQrData": "QR-Abhilasha",
+      "workerTag": "abhilasha",
       "income": {
-        "sbi": {
-          "monthlyIncomeInr": 37200,
-          "accountAgeMonths": 11
-        },
-        "uber": {
-          "averageRating": 4.66,
-          "completedTrips": 702
-        }
-      }
-    },
-    "0x9999999999999999999999999999999999999999": {
-      "workerTag": "WORKER-010",
-      "country": "IN",
-      "ageAbove18": true,
-      "anonTestQrData": "anon-aadhaar-test:worker-010",
-      "income": {
-        "sbi": {
-          "monthlyIncomeInr": 62400,
-          "accountAgeMonths": 34
-        },
-        "uber": {
-          "averageRating": 4.97,
-          "completedTrips": 2510
-        }
+        "sbi": { "salary": 60000, "months": 10, "txCount": 40, "lastCredit": "2026-02-22" },
+        "uber": { "trips": 150, "rating": 4.92, "weeklyEarnings": 11200 }
       }
     }
   }
