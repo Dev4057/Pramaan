@@ -13,12 +13,12 @@
       "provider": "uber",
       "providerLabel": "Uber",
       "expiresAt": 1773448505734,
-      "updatedAt": 1773459125725,
+      "updatedAt": 1773513936415,
       "platform": "SBI",
       "proofHash": "16d59720b813121c1e003f08b584dccc0c9b550e8b970b050b0891dfd801fa1b",
       "scoreAssigned": true,
       "score": 83,
-      "scoreTxHash": "0x988fe983e615ae9810f0a0448963d0bec3f5d2277bd21392b8dbf0827fc48acf"
+      "scoreTxHash": "0xf87c1f4798287c88e07aade630332227bd8009b98ac8649d1e622e5ad5b28d05"
     }
   },
   "0x1111111111111111111111111111111111111111": {
