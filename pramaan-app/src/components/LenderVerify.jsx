@@ -18,6 +18,31 @@ const ERC20_ABI = [
   }
 ]
 
+const WORKER_GETTER_ABI = [
+  {
+    type: 'function',
+    name: 'workers',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [
+      { name: 'identityVerified', type: 'bool' },
+      { name: 'incomeVerified', type: 'bool' },
+      { name: 'gigScore', type: 'uint8' },
+      { name: 'lastUpdated', type: 'uint256' },
+      { name: 'identityDdocId', type: 'string' },
+      { name: 'incomeDdocId', type: 'string' },
+      { name: 'platform', type: 'string' },
+      { name: 'identityProofHash', type: 'string' },
+      { name: 'incomeProofHash', type: 'string' },
+      { name: 'identityNullifier', type: 'bytes32' },
+      { name: 'incomeNullifier', type: 'bytes32' },
+      { name: 'identityCommitment', type: 'bytes32' },
+      { name: 'incomeCommitment', type: 'bytes32' },
+      { name: 'exists', type: 'bool' }
+    ]
+  }
+]
+
 export default function LenderVerify() {
   const ui = {
     text: '#2f2a22',
@@ -107,12 +132,25 @@ export default function LenderVerify() {
       // Pre-flight check to get full worker state for debugging logs
       try {
         console.log('Checking worker profile state on-chain...')
-        const profile = await publicClient.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: PramaanABI.abi,
-          functionName: 'workers',
-          args: [workerAddress]
-        })
+        
+        let profile
+        try {
+          profile = await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: WORKER_GETTER_ABI,
+            functionName: 'workers',
+            args: [workerAddress]
+          })
+        } catch (_) {
+          // fallback
+          profile = await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: PramaanABI.abi,
+            functionName: 'workers',
+            args: [workerAddress]
+          })
+        }
+
         console.dir('Worker Profile pre-check data:', profile)
         
         // Manual validation matching contract logic to prevent ugly gas limit errors
