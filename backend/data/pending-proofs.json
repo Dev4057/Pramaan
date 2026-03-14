@@ -1,0 +1,41 @@
+{
+  "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7": {
+    "identity": {
+      "ready": false,
+      "type": "identity",
+      "providerLabel": "Aadhaar",
+      "expiresAt": 1773443461978,
+      "updatedAt": 1773443341978
+    },
+    "income": {
+      "ready": true,
+      "type": "income",
+      "provider": "uber",
+      "providerLabel": "Uber",
+      "expiresAt": 1773448505734,
+      "updatedAt": 1773459125725,
+      "platform": "SBI",
+      "proofHash": "16d59720b813121c1e003f08b584dccc0c9b550e8b970b050b0891dfd801fa1b",
+      "scoreAssigned": true,
+      "score": 83,
+      "scoreTxHash": "0x988fe983e615ae9810f0a0448963d0bec3f5d2277bd21392b8dbf0827fc48acf"
+    }
+  },
+  "0x1111111111111111111111111111111111111111": {
+    "identity": {
+      "ready": false,
+      "type": "identity",
+      "providerLabel": "Aadhaar",
+      "expiresAt": 1773441640092,
+      "updatedAt": 1773441520093
+    },
+    "income": {
+      "ready": false,
+      "type": "income",
+      "provider": "sbi",
+      "providerLabel": "SBI",
+      "expiresAt": 1773441661017,
+      "updatedAt": 1773441541017
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@reclaimprotocol/js-sdk": "^4.15.0"
+  }
+}

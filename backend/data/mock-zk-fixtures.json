@@ -1,0 +1,180 @@
+{
+  "default": {
+    "workerTag": "DEFAULT-WORKER",
+    "country": "IN",
+    "ageAbove18": true,
+    "anonTestQrData": "anon-aadhaar-test:default",
+    "income": {
+      "sbi": {
+        "monthlyIncomeInr": 42000,
+        "accountAgeMonths": 18
+      },
+      "uber": {
+        "averageRating": 4.86,
+        "completedTrips": 1380
+      }
+    }
+  },
+  "workers": {
+    "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7": {
+      "workerTag": "WORKER-001",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-001",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 51000,
+          "accountAgeMonths": 24
+        },
+        "uber": {
+          "averageRating": 4.92,
+          "completedTrips": 1824
+        }
+      }
+    },
+    "0x1111111111111111111111111111111111111111": {
+      "workerTag": "WORKER-002",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-002",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 38500,
+          "accountAgeMonths": 15
+        },
+        "uber": {
+          "averageRating": 4.75,
+          "completedTrips": 910
+        }
+      }
+    },
+    "0x2222222222222222222222222222222222222222": {
+      "workerTag": "WORKER-003",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-003",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 46750,
+          "accountAgeMonths": 22
+        },
+        "uber": {
+          "averageRating": 4.88,
+          "completedTrips": 1412
+        }
+      }
+    },
+    "0x3333333333333333333333333333333333333333": {
+      "workerTag": "WORKER-004",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-004",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 40200,
+          "accountAgeMonths": 12
+        },
+        "uber": {
+          "averageRating": 4.69,
+          "completedTrips": 760
+        }
+      }
+    },
+    "0x4444444444444444444444444444444444444444": {
+      "workerTag": "WORKER-005",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-005",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 59500,
+          "accountAgeMonths": 30
+        },
+        "uber": {
+          "averageRating": 4.95,
+          "completedTrips": 2201
+        }
+      }
+    },
+    "0x5555555555555555555555555555555555555555": {
+      "workerTag": "WORKER-006",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-006",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 34800,
+          "accountAgeMonths": 9
+        },
+        "uber": {
+          "averageRating": 4.6,
+          "completedTrips": 640
+        }
+      }
+    },
+    "0x6666666666666666666666666666666666666666": {
+      "workerTag": "WORKER-007",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-007",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 42800,
+          "accountAgeMonths": 17
+        },
+        "uber": {
+          "averageRating": 4.81,
+          "completedTrips": 1098
+        }
+      }
+    },
+    "0x7777777777777777777777777777777777777777": {
+      "workerTag": "WORKER-008",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-008",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 45200,
+          "accountAgeMonths": 19
+        },
+        "uber": {
+          "averageRating": 4.83,
+          "completedTrips": 1255
+        }
+      }
+    },
+    "0x8888888888888888888888888888888888888888": {
+      "workerTag": "WORKER-009",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-009",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 37200,
+          "accountAgeMonths": 11
+        },
+        "uber": {
+          "averageRating": 4.66,
+          "completedTrips": 702
+        }
+      }
+    },
+    "0x9999999999999999999999999999999999999999": {
+      "workerTag": "WORKER-010",
+      "country": "IN",
+      "ageAbove18": true,
+      "anonTestQrData": "anon-aadhaar-test:worker-010",
+      "income": {
+        "sbi": {
+          "monthlyIncomeInr": 62400,
+          "accountAgeMonths": 34
+        },
+        "uber": {
+          "averageRating": 4.97,
+          "completedTrips": 2510
+        }
+      }
+    }
+  }
+}
