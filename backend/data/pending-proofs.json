@@ -81,9 +81,9 @@
       "platform": "SBI",
       "proofHash": "4b1196f73a0558ce635db7334c27f94a99a83409d3a560f2d506febaddbd2b84",
       "scoreAssigned": true,
-      "score": 79,
-      "scoreTxHash": "0x30bf670e38d933eeb8ac4f7985056ed802126089e042f4482121525aa8ece4bd",
-      "updatedAt": 1773521560904
+      "score": 91,
+      "scoreTxHash": "0x7379fdb51a42abaf89e65e4e86ac72b97ae9bd93137ce7bf3d3359c9b5a1e263",
+      "updatedAt": 1773530980671
     }
   }
 }
