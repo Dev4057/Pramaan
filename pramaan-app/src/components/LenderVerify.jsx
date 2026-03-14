@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatUnits } from 'viem'
-import { useReadContract, useWriteContract, usePublicClient } from 'wagmi'
+import { useReadContract, useWriteContract, usePublicClient, useAccount } from 'wagmi'
 import PramaanABI from '../abi/Pramaan.json'
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
@@ -55,6 +55,7 @@ export default function LenderVerify() {
   }, [])
 
   const publicClient = usePublicClient()
+  const { address } = useAccount()
   const { writeContractAsync } = useWriteContract()
 
   const { data: usdcAddress } = useReadContract({
@@ -113,8 +114,23 @@ export default function LenderVerify() {
           args: [workerAddress]
         })
         console.dir('Worker Profile pre-check data:', profile)
-      } catch (readErr) {
-        console.warn('Failed to read worker profile for debugging (this is non-fatal):', readErr)
+        
+        // Manual validation matching contract logic to prevent ugly gas limit errors
+        const isExists = Array.isArray(profile) ? profile[13] : profile.exists
+        const identityVerified = Array.isArray(profile) ? profile[0] : profile.identityVerified
+        const incomeVerified = Array.isArray(profile) ? profile[1] : profile.incomeVerified
+        const gigScore = Array.isArray(profile) ? profile[2] : profile.gigScore
+        const lastUpdated = Array.isArray(profile) ? profile[3] : profile.lastUpdated
+        
+        if (!isExists) throw new Error("Worker not found on-chain. Have they registered?")
+        if (!identityVerified || !incomeVerified) throw new Error("Worker profile is incomplete. They need both Identity & Income verified.")
+        if (Number(gigScore) === 0) throw new Error("Worker GigScore is 0. Score is not set yet.")
+        
+        const ninetyDays = 90n * 24n * 60n * 60n
+        const now = BigInt(Math.floor(Date.now() / 1000))
+        if (now - BigInt(lastUpdated) >= ninetyDays) throw new Error("Worker score is expired (> 90 days).")
+      } catch (checkErr) {
+        throw checkErr // Fast fail with clear error instead of proceeding to tx
       }
 
       console.log('Initiating USDC approve...')
@@ -129,6 +145,17 @@ export default function LenderVerify() {
       
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash })
       console.log('Approve tx confirmed:', approveReceipt)
+
+      console.log('Simulating verifyWorker to catch contract reverts...')
+      if (address) {
+        await publicClient.simulateContract({
+          account: address,
+          address: CONTRACT_ADDRESS,
+          abi: PramaanABI.abi,
+          functionName: 'verifyWorker',
+          args: [workerAddress]
+        })
+      }
 
       console.log('Initiating verifyWorker...')
       const verifyHash = await writeContractAsync({
