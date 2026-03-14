@@ -116,11 +116,12 @@ export default function LenderVerify() {
         console.dir('Worker Profile pre-check data:', profile)
         
         // Manual validation matching contract logic to prevent ugly gas limit errors
-        const isExists = Array.isArray(profile) ? profile[13] : profile.exists
-        const identityVerified = Array.isArray(profile) ? profile[0] : profile.identityVerified
-        const incomeVerified = Array.isArray(profile) ? profile[1] : profile.incomeVerified
-        const gigScore = Array.isArray(profile) ? profile[2] : profile.gigScore
-        const lastUpdated = Array.isArray(profile) ? profile[3] : profile.lastUpdated
+        const hasExtendedLayout = Array.isArray(profile) && profile.length >= 14
+        const isExists = Array.isArray(profile) ? Boolean(profile[hasExtendedLayout ? 13 : 11]) : Boolean(profile.exists)
+        const identityVerified = Array.isArray(profile) ? Boolean(profile[0]) : Boolean(profile.identityVerified)
+        const incomeVerified = Array.isArray(profile) ? Boolean(profile[1]) : Boolean(profile.incomeVerified)
+        const gigScore = Array.isArray(profile) ? Number(profile[2]) : Number(profile.gigScore)
+        const lastUpdated = Array.isArray(profile) ? Number(profile[3]) : Number(profile.lastUpdated)
         
         if (!isExists) throw new Error("Worker not found on-chain. Have they registered?")
         if (!identityVerified || !incomeVerified) throw new Error("Worker profile is incomplete. They need both Identity & Income verified.")
