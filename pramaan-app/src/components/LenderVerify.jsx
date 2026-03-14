@@ -98,28 +98,76 @@ export default function LenderVerify() {
     setVerifyTxHash(null)
 
     try {
+      console.log('--- STARTING VERIFICATION PROCESS ---')
+      console.log('Target Worker Address:', workerAddress)
+      console.log('USDC Address:', usdcAddress)
+      console.log('Verification Fee:', verificationFee.toString())
+
+      // Pre-flight check to get full worker state for debugging logs
+      try {
+        console.log('Checking worker profile state on-chain...')
+        const profile = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: PramaanABI.abi,
+          functionName: 'workers',
+          args: [workerAddress]
+        })
+        console.dir('Worker Profile pre-check data:', profile)
+      } catch (readErr) {
+        console.warn('Failed to read worker profile for debugging (this is non-fatal):', readErr)
+      }
+
+      console.log('Initiating USDC approve...')
       const approveHash = await writeContractAsync({
         address: usdcAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [CONTRACT_ADDRESS, verificationFee]
       })
+      console.log('Approve tx submitted with hash:', approveHash)
       setApproveTxHash(approveHash)
-      await publicClient.waitForTransactionReceipt({ hash: approveHash })
+      
+      const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash })
+      console.log('Approve tx confirmed:', approveReceipt)
 
+      console.log('Initiating verifyWorker...')
       const verifyHash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: PramaanABI.abi,
         functionName: 'verifyWorker',
         args: [workerAddress]
       })
+      console.log('Verify tx submitted with hash:', verifyHash)
       setVerifyTxHash(verifyHash)
-      await publicClient.waitForTransactionReceipt({ hash: verifyHash })
+      
+      const verifyReceipt = await publicClient.waitForTransactionReceipt({ hash: verifyHash })
+      console.log('Verify tx confirmed:', verifyReceipt)
 
       setLookupAddress(workerAddress)
       setPaid(true)
+      console.log('--- VERIFICATION SUCCESSFUL ---')
     } catch (err) {
-      setError(err?.shortMessage || err?.message || 'Verification failed')
+      console.error('!!! VERIFICATION COMPLETELY FAILED !!!')
+      console.error('Full error object:', err)
+      if (err.cause) console.error('Error cause:', err.cause)
+
+      const errorText = String(err?.shortMessage || err?.message || '')
+      let humanReadableError = errorText
+
+      // Map smart contract revert reasons to helpful frontend errors
+      if (errorText.includes('Worker not found')) {
+        humanReadableError = 'Verification Failed: Worker not found on-chain. Has this address started the registration?'
+      } else if (errorText.includes('Profile incomplete')) {
+        humanReadableError = 'Verification Failed: Profile incomplete. The worker must complete BOTH Identity (Step 1) and Income (Step 2) verification.'
+      } else if (errorText.includes('Score not set')) {
+        humanReadableError = 'Verification Failed: Score not set. Wait for the backend/AI agent to compute their GigScore.'
+      } else if (errorText.includes('Score expired')) {
+        humanReadableError = 'Verification Failed: Profile is older than 90 days. Score expired.'
+      } else if (errorText.includes('Fee transfer failed') || errorText.includes('transfer amount exceeds')) {
+        humanReadableError = 'Verification Failed: USDC fee transfer failed. Do you have enough Sepolia Base USDC and ETH?'
+      }
+
+      setError(humanReadableError)
       setPaid(false)
     }
 
