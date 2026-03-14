@@ -4,7 +4,7 @@ import App from './App.jsx'
 import './index.css'
 
 import { WagmiProvider, createConfig, http } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
+import { sepolia, baseSepolia } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { AnonAadhaarProvider } from '@anon-aadhaar/react'
@@ -13,10 +13,11 @@ import '@rainbow-me/rainbowkit/styles.css'
 const config = getDefaultConfig({
   appName: 'Pramaan',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
-  chains: [sepolia],
+  chains: [sepolia,baseSepolia],
   transports: {
-    [sepolia.id]: http()
-  }
+    [sepolia.id]: http(),
+    [baseSepolia.id]: http(),
+  },
 })
 
 const queryClient = new QueryClient()

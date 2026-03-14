@@ -49,5 +49,17 @@
       "scoreTxHash": "0xaef9848f65ed25c5a740eea998273416d51639168af231d75821187b5f3eae6b",
       "updatedAt": 1773485766599
     }
+  },
+  "0x1866f3d90abb4dfba180206f064de5bd74f5f2ba": {
+    "income": {
+      "ready": true,
+      "type": "income",
+      "platform": "SBI",
+      "proofHash": "6529a7b602d02835b8d83038dd4d9b490638217cee88a89cca55cb9e4f2829b0",
+      "scoreAssigned": true,
+      "score": 83,
+      "scoreTxHash": "0xea37ae00391fc19313d84400b7dd510021d1fac6561f4c6957e320f0265f3b42",
+      "updatedAt": 1773490626460
+    }
   }
 }
