@@ -683,6 +683,11 @@ export default function WorkerDashboard() {
   }
 
   async function handleVerifyMockIncome() {
+    if (step2Done || await isIncomeAlreadyVerifiedOnChain()) {
+      setStep2Done(true)
+      return
+    }
+
     setIncomeLoading(true)
     setError(null)
     try {
