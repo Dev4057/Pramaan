@@ -243,11 +243,10 @@ function requireReclaimConfig() {
 // --- Helper: Store proof in Fileverse ---
 async function storeInFileverse(walletAddress, proofData, type) {
   try {
-    const res = await fetch(`${FILEVERSE_URL}/api/ddocs`, {
+    const res = await fetch(`${FILEVERSE_URL}/api/ddocs?apiKey=${FILEVERSE_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': FILEVERSE_API_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         title: `Pramaan ${type} Proof - ${walletAddress}`,
@@ -256,7 +255,7 @@ async function storeInFileverse(walletAddress, proofData, type) {
     })
     const data = await res.json()
     console.log('Fileverse response:', data)
-    return data.ddocId || data.id || `fallback-${Date.now()}`
+    return data?.data?.ddocId || data?.ddocId || `fallback-${Date.now()}`
   } catch (err) {
     console.error('Fileverse storage error:', err)
     return `fallback-${Date.now()}`
