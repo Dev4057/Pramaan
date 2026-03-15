@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, ExternalLink } from "lucide-react";
+import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, ExternalLink, Bot, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { LogInWithAnonAadhaar, useAnonAadhaar, useProver } from '@anon-aadhaar/react';
@@ -386,115 +386,118 @@ export default function CreateIdentity() {
             </motion.div>
           )}
 
-          {/* PHASE 3: PROCESSING / SCORING */}
+{/* --- PHASE 3: THE PIPELINE (Only shows during processing) --- */}
           {phase === "processing" && (
-            <motion.div key="processing" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2 text-center">Building your identity</h1>
-              <p className="text-muted-foreground mb-10 text-center">Validating your credentials securely...</p>
+            <motion.div 
+              key="pipeline" 
+              className="w-full max-w-5xl mx-auto" 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95, filter: "blur(10px)", transition: { duration: 0.4 } }}
+            >
+              <h1 className="text-3xl font-bold mb-12 text-center text-foreground">
+                Minting your Pramaan Identity...
+              </h1>
 
-              <div className="space-y-3 mb-10 max-w-sm mx-auto">
-                <div className="flex items-center gap-4 glass-card p-4">
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Identity Verification</p>
-                    <p className="text-xs text-muted-foreground">Verified on-chain</p>
-                  </div>
+              {/* THE 4-BOX PIPELINE */}
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                
+                {/* Box 1: Identity */}
+                <div className="glass-card p-6 flex-1 w-full text-center border-success/30 shadow-lg shadow-success/5">
+                  <Fingerprint className="w-8 h-8 text-success mx-auto mb-3" />
+                  <p className="font-semibold text-foreground">Identity</p>
+                  <p className="text-xs text-success font-medium mt-1 flex items-center justify-center gap-1">
+                    <CheckCircle2 className="w-3 h-3"/> ZK Verified
+                  </p>
                 </div>
-                <div className="flex items-center gap-4 glass-card p-4">
-                  {step2Done ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Loader2 className="w-5 h-5 text-primary animate-spin" />}
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${step2Done ? 'text-foreground' : 'text-primary'}`}>Income Validation</p>
-                    <p className="text-xs text-muted-foreground">Cross-referencing signals</p>
-                  </div>
+
+                <ArrowRight className="w-6 h-6 text-muted-foreground/50 rotate-90 md:rotate-0 flex-shrink-0" />
+
+                {/* Box 2: Income */}
+                <div className="glass-card p-6 flex-1 w-full text-center border-success/30 shadow-lg shadow-success/5">
+                  <BarChart3 className="w-8 h-8 text-success mx-auto mb-3" />
+                  <p className="font-semibold text-foreground">Income</p>
+                  <p className="text-xs text-success font-medium mt-1 flex items-center justify-center gap-1">
+                    <CheckCircle2 className="w-3 h-3"/> On-Chain
+                  </p>
                 </div>
-                <div className="flex items-center gap-4 glass-card p-4">
-                  {gigScore ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Loader2 className="w-5 h-5 text-primary animate-spin" />}
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${gigScore ? 'text-foreground' : 'text-primary'}`}>Gig Score Generation</p>
-                    <p className="text-xs text-muted-foreground">AI computing credibility score</p>
-                  </div>
+
+                <ArrowRight className="w-6 h-6 text-muted-foreground/50 rotate-90 md:rotate-0 flex-shrink-0" />
+
+                {/* Box 3: The Pramaan Agent (Pulsing Animation) */}
+                <motion.div 
+                  className="glass-card p-6 flex-1 w-full text-center border-primary/50 shadow-primary/20"
+                  animate={{ opacity: [0.4, 1, 0.4], scale: [0.98, 1.02, 0.98] }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                >
+                  <Bot className="w-8 h-8 mx-auto mb-3 text-primary" />
+                  <p className="font-semibold text-primary">Pramaan Agent</p>
+                  <p className="text-xs font-medium mt-1 text-primary/70">x402 Negotiating...</p>
+                </motion.div>
+
+                <ArrowRight className="w-6 h-6 text-muted-foreground/50 rotate-90 md:rotate-0 flex-shrink-0" />
+
+                {/* Box 4: The Spinning Score */}
+                <div className="glass-card p-6 flex-1 w-full text-center border-border">
+                  <Shield className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Gig Score</p>
+                  <p className="text-5xl font-black tabular-nums tracking-tighter text-primary">
+                    {displayScore}
+                  </p>
                 </div>
               </div>
-
-              {step2Done && (
-                <motion.div className="text-center" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Score</p>
-                  <motion.p className="text-6xl font-semibold font-mono-data tracking-tight text-foreground" animate={{ scale: displayScore === gigScore ? [0.9, 1.1, 1] : 1 }}>
-                    {displayScore}
-                  </motion.p>
-                </motion.div>
-              )}
             </motion.div>
           )}
 
-          {/* PHASE 4: COMPLETE (PASSPORT) */}
+         {/* --- PHASE 4: THE SUCCESS PASSPORT (Slim & Sleek Version) --- */}
           {phase === "complete" && (
-            <motion.div key="complete" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-              <motion.div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6" initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                <CheckCircle2 className="w-8 h-8 text-success" />
-              </motion.div>
-
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground mb-2">Your Pramaan Identity is Ready</h1>
-              <p className="text-muted-foreground mb-10">Identity Verified. Your Gig Score is now portable.</p>
-
-              <div className="glass-card p-8 text-left max-w-sm mx-auto mb-8 border-success/20">
-                <div className="flex items-center justify-between mb-6">
-                  <div><p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Pramaan Passport</p></div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success text-xs font-medium border border-success/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-success" /> Verified
-                  </div>
+            <motion.div 
+              key="complete" 
+              className="w-full max-w-md mx-auto" 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              transition={{ delay: 0.2, type: "spring", stiffness: 120 }}
+            >
+              <div className="text-center mb-8">
+                <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-6 h-6 text-success" />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Wallet</p>
-                    <p className="text-sm font-medium font-mono-data text-foreground">{address?.slice(0,6)}...{address?.slice(-4)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Gig Score</p>
-                    <p className="text-2xl font-semibold font-mono-data text-foreground">{gigScore}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/60">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Income Verified</p>
-                    <p className="text-xs text-success font-medium mt-0.5">✓ Confirmed</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Aadhaar Linked</p>
-                    <p className="text-xs text-success font-medium mt-0.5">✓ Confirmed</p>
-                  </div>
-                </div>
+                <h1 className="text-2xl font-bold text-foreground tracking-tight">Passport Verified</h1>
               </div>
 
-              {/* --- NEW FILEVERSE PROOF BUTTONS --- */}
-              <div className="grid grid-cols-1 gap-3 mt-4 mb-6 max-w-sm mx-auto">
-                <button 
-                  onClick={() => window.open('https://docs.fileverse.io/document/qFhjHXJQZTPyfvRqMGbjZs', '_blank')}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/50 transition-all shadow-sm"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> View on Fileverse
-                </button>
+              {/* The Slim Premium Passport Card */}
+              <div className="glass-card p-8 mb-8 border-success/30 shadow-xl shadow-success/5 relative overflow-hidden text-left bg-gradient-to-br from-background to-success/5">
+                 <div className="flex justify-between items-start mb-8">
+                   <div>
+                     <h2 className="text-xs font-black uppercase tracking-[0.2em] text-success mb-1">Pramaan</h2>
+                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Digital Passport</p>
+                   </div>
+                   <div className="text-right">
+                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Gig Score</p>
+                     <p className="text-5xl font-black tracking-tighter tabular-nums text-foreground">{gigScore}</p>
+                   </div>
+                 </div>
+                 
+                 <div className="space-y-4">
+                   <div>
+                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Verified Wallet</p>
+                     <p className="text-sm font-mono-data text-foreground/80">{address?.slice(0,8)}...{address?.slice(-6)}</p>
+                   </div>
+                   
+                   <div className="pt-4 border-t border-border/40 flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                      <span className="text-[10px] font-bold text-success uppercase tracking-wider">On-Chain Minted</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase">{finalProfile?.platform || 'SBI'} Network</p>
+                   </div>
+                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button onClick={() => navigate("/verify")} className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-medium transition-all duration-200 ease-out hover:brightness-95 hover:shadow-lg active:scale-95">
-                  View Identity <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              {(debugLoading || debugDdoc) && (
-                <div className="mt-4 p-4 rounded-xl bg-success/10 border border-success/20 text-success text-sm max-w-sm mx-auto text-center break-all">
-                  {debugLoading ? (
-                    <span>Syncing Score to Fileverse...</span>
-                  ) : (
-                    <>
-                      Score synced to Fileverse! <br/>
-                      <strong>dDoc ID:</strong> {debugDdoc}
-                    </>
-                  )}
-                </div>
+                            {debugDdoc && (
+                <p className="mt-5 text-[15px] text-muted-foreground font-mono">
+                  Debug State Sync: {debugDdoc}
+                </p>
               )}
             </motion.div>
           )}
