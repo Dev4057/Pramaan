@@ -81,11 +81,18 @@ export default function VerifyIdentity() {
 
   // --- THE PAYMENT FLOW ---
   const handleVerify = async () => {
+    console.log("--- Starting Verification Flow ---");
+    console.log("Worker Address:", workerAddress);
+    console.log("Current User Address:", address);
+    
     if (!address) {
       setError('Please connect your wallet first.');
       return;
     }
-    if (!workerAddress || !publicClient || !usdcAddress || !verificationFee) return;
+    if (!workerAddress || !publicClient || !usdcAddress || !verificationFee) {
+      console.log("Missing prerequisites:", { workerAddress: !!workerAddress, publicClient: !!publicClient, usdcAddress, verificationFee });
+      return;
+    }
     
     // Basic formatting check
     if (!/^0x[a-fA-F0-9]{40}$/.test(workerAddress)) {
@@ -97,36 +104,143 @@ export default function VerifyIdentity() {
     setError(null);
 
     try {
-      // Step 1: Approve the Pramaan Contract to spend the USDC fee
-      const approveHash = await writeContractAsync({ 
-        address: usdcAddress, 
-        abi: ERC20_ABI, 
-        functionName: 'approve', 
-        args: [CONTRACT_ADDRESS, verificationFee] 
-      });
-      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      // Pre-flight check via readonly call
+      console.log("Running pre-flight worker profile check (Extended ABI)...");
+      try {
+        const profilePreflight = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: WORKER_GETTER_ABI,
+          functionName: 'workers',
+          args: [workerAddress]
+        });
+        
+        console.log("Extended ABI Profile Result:", profilePreflight);
+        
+        // Extended ABI array mapping: [0: identityVerified, 1: incomeVerified, 2: gigScore, ...]
+        if (!profilePreflight[13]) {
+            console.log("Pre-flight failed: Worker doesn't exist");
+            throw new Error('Worker not found');
+        }
+        if (!profilePreflight[0] || !profilePreflight[1]) {
+            console.log("Pre-flight failed: Identity/Income incomplete");
+            throw new Error('Profile incomplete');
+        }
+        if (profilePreflight[2] === 0) {
+            console.log("Pre-flight failed: Score is 0");
+            throw new Error('Score not set');
+        }
+        console.log("Pre-flight check passed (Extended ABI)");
+      } catch (err) {
+        console.warn("Extended ABI pre-flight check failed or returned error:", err);
+        // Fallback to legacy ABI pre-flight check if ZK fields aren't supported on current chain iteration
+        try {
+          console.log("Running pre-flight fallback check (Legacy ABI)...");
+          const profilePreflightLegacy = await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: PramaanABI.abi,
+            functionName: 'workers',
+            args: [workerAddress]
+          });
 
+          console.log("Legacy ABI Profile Result:", profilePreflightLegacy);
+
+          // Length 10 array
+          const exists = profilePreflightLegacy[profilePreflightLegacy.length - 1]; 
+          const identityVerified = profilePreflightLegacy[0];
+          const incomeVerified = profilePreflightLegacy[1];
+          const gigScore = profilePreflightLegacy[2];
+
+          if (!exists) {
+              console.log("Pre-flight legacy failed: Worker doesn't exist");
+              throw new Error('Worker not found');
+          }
+          if (!identityVerified || !incomeVerified) {
+              console.log("Pre-flight legacy failed: Identity/Income incomplete");
+              throw new Error('Profile incomplete');
+          }
+          if (gigScore === 0) {
+              console.log("Pre-flight legacy failed: Score is 0");
+              throw new Error('Score not set');
+          }
+          console.log("Pre-flight check passed (Legacy ABI)");
+        } catch(fallbackErr) {
+            console.warn("Legacy ABI pre-flight also threw an error:", fallbackErr);
+            if (fallbackErr.message.includes('Worker not found') || 
+                fallbackErr.message.includes('Profile incomplete') || 
+                fallbackErr.message.includes('Score not set')) {
+                throw fallbackErr;
+            } else {
+                throw err; // throw orig ZK formatting error if we didn't explicitly find standard contract failure rules
+            }
+        }
+      }
+
+      console.log("Starting USDC Approval Step...");
+      // Step 1: Approve the Pramaan Contract to spend the USDC fee
+      let approveHash;
+      try {
+        approveHash = await writeContractAsync({ 
+          address: usdcAddress, 
+          abi: ERC20_ABI, 
+          functionName: 'approve', 
+          args: [CONTRACT_ADDRESS, verificationFee] 
+        });
+        console.log("USDC Approval Transaction Hash:", approveHash);
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        console.log("USDC Approval Mined Successfully.");
+      } catch (e) {
+        console.error("USDC Approve failed:", e);
+        throw new Error('Approval transaction failed or was rejected.');
+      }
+
+      console.log("Starting Worker Verification Step...");
       // Step 2: Execute the verifyWorker function on Pramaan
+      let gas;
+      try {
+        console.log("Estimating gas for verifyWorker...");
+        const estimated = await publicClient.estimateContractGas({
+          account: address,
+          address: CONTRACT_ADDRESS, 
+          abi: PramaanABI.abi, 
+          functionName: 'verifyWorker', 
+          args: [workerAddress]
+        });
+        gas = (estimated * 120n) / 100n;
+        console.log("Gas Estimated:", estimated.toString(), "With Buffer:", gas.toString());
+      } catch (err) {
+        console.error("Gas estimation for verifyWorker failed:", err);
+        gas = 500000n; // Safe fallback
+        console.log("Using safe fallback gas limit:", gas.toString());
+      }
+
+      console.log("Sending verifyWorker transaction...");
       const verifyHash = await writeContractAsync({ 
         address: CONTRACT_ADDRESS, 
         abi: PramaanABI.abi, 
         functionName: 'verifyWorker', 
-        args: [workerAddress] 
+        args: [workerAddress],
+        gas
       });
+      console.log("Worker Verification Tx Hash:", verifyHash);
       await publicClient.waitForTransactionReceipt({ hash: verifyHash });
+      console.log("Worker Verification Tx Mined Successfully!");
 
       // Success! Move the UI to the results phase
       setLookupAddress(workerAddress);
       setPaid(true);
     } catch (err) {
-      console.error(err);
+      console.error("--- Top Level Error Catcher in handleVerify ---", err);
       
       // Attempt to map common revert errors to human readable text
       const errText = String(err?.shortMessage || err?.message || '');
       if (errText.includes('Worker not found')) setError('Verification Failed: This worker has not registered an identity yet.');
       else if (errText.includes('Profile incomplete')) setError('Verification Failed: The worker has not completed all verification steps.');
       else if (errText.includes('Score not set')) setError('Verification Failed: The AI agent has not computed a score for this worker yet.');
-      else setError('Verification transaction failed. Ensure you have enough Sepolia Base USDC and ETH.');
+      else if (errText.includes('Score expired')) setError('Verification Failed: The worker score has expired.');
+      else if (errText.includes('transfer amount exceeds balance')) setError('Verification Failed: Insufficient USDC balance.');
+      else if (errText.includes('insufficient allowance')) setError('Verification Failed: Internal allowance failed. Try again.');
+      else if (errText.includes('rejected')) setError('Transaction was rejected by the user.');
+      else setError('Verification transaction failed. Ensure you have USDC and Sepolia ETH.');
       
       setPaid(false);
     }

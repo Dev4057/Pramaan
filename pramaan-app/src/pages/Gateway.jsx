@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { UserPlus, ShieldCheck, ArrowRight, Wallet } from "lucide-react";
+import { UserPlus, ShieldCheck, ArrowRight, Wallet, DatabaseZap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
@@ -59,7 +59,7 @@ const Gateway = () => {
           </ConnectButton.Custom>
         </motion.div>
 
-        <div className={`grid sm:grid-cols-2 gap-4 ${!isConnected ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''} transition-all duration-500`}>
+        <div className={`grid sm:grid-cols-3 gap-4 ${!isConnected ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''} transition-all duration-500`}>
           {[
             {
               icon: UserPlus,
@@ -74,6 +74,13 @@ const Gateway = () => {
               desc: "Already have a Pramaan identity? View and verify your credentials.",
               route: "/verify",
               glowClass: "hover:border-glow-yellow/30",
+            },
+            {
+              icon: DatabaseZap,
+              title: "Lender Dashboard",
+              desc: "Access the x402 Protocol to fetch deep analytics and worker profiles.",
+              route: "/lender",
+              glowClass: "hover:border-primary/40",
             },
           ].map((card, i) => (
             <motion.button

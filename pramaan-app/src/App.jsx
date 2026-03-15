@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Gateway from "./pages/Gateway";
 import CreateIdentity from "./pages/CreateIdentity";
 import VerifyIdentity from "./pages/VerifyIdentity";
+import LenderDashboard from "./pages/LenderDashboard";
 
 // Reading straight from your perfect .env file
 const config = getDefaultConfig({
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/gateway" element={<Gateway />} />
               <Route path="/create" element={<CreateIdentity />} />
               <Route path="/verify" element={<VerifyIdentity />} />
+              <Route path="/lender" element={<LenderDashboard />} />
             </Routes>
           </BrowserRouter>
         </AnonAadhaarProvider>

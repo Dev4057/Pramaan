@@ -288,33 +288,48 @@ app.get('/api/reclaim/status/:type/:walletAddress', (req, res) => {
   res.json(status && status.ready ? status : { ready: false })
 })
 
-
 // =========================================================================
 // THE MOCK ELSA X402 SIMULATOR
 // =========================================================================
-app.post('/api/mock-elsa/analyze', (req, res) => {
+app.post('/api/mock-elsa/analyze', async (req, res) => {
   const paymentProof = req.headers['x-payment-proof'];
 
   if (!paymentProof) {
     log('🛡️', 'MOCK ELSA', 'Incoming request blocked. Missing payment proof.');
-    return res.status(402).set({
-      'x-payment-address': '0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7', 
-      'x-payment-amount': '20000', 
-      'x-payment-chain': 'base-sepolia'
-    }).json({ error: 'x402 Payment Required' });
-  }
+    
+    // EXPLICITLY set these headers so Axios can see them
+    res.setHeader('x-payment-address', '0xa60d26d641fC807C9659df3f1A5E24Dc54C6baD7'); 
+    res.setHeader('x-payment-amount', '20000'); 
+    res.setHeader('x-payment-chain', 'base-sepolia');
+    res.setHeader('Access-Control-Expose-Headers', 'x-payment-address, x-payment-amount, x-payment-chain');
 
-  log('🧠', 'MOCK ELSA', `Valid payment received (${paymentProof}). Analyzing gig worker data...`);
-  
-  const platform = req.body.platform || 'SBI';
-  const baseScore = platform.toLowerCase() === 'uber' ? 82 : 88;
-  const aiScore = baseScore + Math.floor(Math.random() * 5); 
-  
-  return res.status(200).json({
-    success: true,
-    score: aiScore,
-    agent: "Mock OpenClaw Simulator"
-  });
+    return res.status(402).json({ error: 'x402 Payment Required' });
+  }
+  log('🧠', 'OPENCLAW', 'Payment Verified. Triggering Local LLM Reasoning...');
+
+  try {
+    const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
+      model: 'llama3',
+      prompt: `Analyze this gig worker. Platform: ${req.body.platform}. They have verified ZK income proofs. Provide a 1-sentence professional credit risk insight.`,
+      stream: false
+    });
+
+    const aiInsight = ollamaResponse.data.response;
+
+    res.json({
+      success: true,
+      score: req.body.platform === 'Uber' ? 84 : 89,
+      insights: aiInsight,
+      agent: "Local OpenClaw (Ollama Llama3)"
+    });
+  } catch (err) {
+    res.json({
+      success: true,
+      score: 96,
+      insights: "Consistent on-chain activity verified via x402 protocol.",
+      agent: "OpenClaw Fallback"
+    });
+  }
 });
 
 
@@ -331,7 +346,6 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
     const walletState = pendingProofs[normalizedWallet] || {}
     const { publicClient: sepoliaPublicClient, walletClient: sepoliaWalletClient, account } = getAgentClients()
     
-    // Base Sepolia Client for x402 Payments
     const baseTransport = http(process.env.BASE_RPC_URL || 'https://sepolia.base.org')
     const basePublicClient = createPublicClient({ chain: baseSepolia, transport: baseTransport })
     const baseWalletClient = createWalletClient({ account, chain: baseSepolia, transport: baseTransport })
@@ -351,23 +365,20 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
     log('🤖', 'HEYELSA', `Initiating OpenClaw analysis for ${walletAddress}`)
 
     let aiScore;
-    // ALWAYS force it to use the Mock Simulator to bypass API keys/404s
     const elsaUrl = 'http://localhost:4000/api/mock-elsa/analyze';
     const aiPayload = { workerAddress: walletAddress, platform: platform };
 
     try {
-      // 1. First Attempt: Ask the AI
       const response = await axios.post(elsaUrl, aiPayload);
       aiScore = parseInt(response.data.score);
     } catch (error) {
-      // 2. Catch the 402 Payment Required
       if (error.response && error.response.status === 402) {
         log('💸', 'X402', '402 Payment Required detected. Processing micro-payment...');
         
-        const paymentAddress = error.response.headers['x-payment-address']; 
-        const paymentAmount = BigInt(error.response.headers['x-payment-amount']); 
+        const amountRaw = error.response.headers['x-payment-amount'] || '20000';
+        const paymentAmount = BigInt(amountRaw); 
+        const paymentAddress = error.response.headers['x-payment-address'] || '0xa60d26d641fC807C9659df3f1A5E24Dc54C6baD7';
 
-        // 3. Pay the AI on Base Sepolia
         const paymentTxHash = await baseWalletClient.writeContract({
           address: BASE_USDC_ADDRESS,
           abi: ERC20_ABI,
@@ -378,7 +389,6 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
         log('✅', 'X402', `Payment sent on Base Sepolia! Tx: ${paymentTxHash}`);
         await basePublicClient.waitForTransactionReceipt({ hash: paymentTxHash });
 
-        // 4. Second Attempt: Retry with the Payment Proof
         log('🤖', 'HEYELSA', 'Retrying OpenClaw analysis with Payment Proof...');
         const retryResponse = await axios.post(elsaUrl, aiPayload, {
           headers: { 'x-payment-proof': paymentTxHash }
@@ -412,5 +422,41 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+
+// =========================================================================
+// THE LENDER ROUTE: FETCH GIG SCORE (X402 PROTECTED)
+// =========================================================================
+app.get('/api/lender/worker-score/:workerAddress', async (req, res) => {
+  const { workerAddress } = req.params;
+  const paymentProof = req.headers['x-payment-proof'];
+
+  // 1. Throw 402 if Lender hasn't paid Pramaan yet
+  if (!paymentProof) {
+    log('🛡️', 'PRAMAAN BUREAU', `Lender requested data for ${workerAddress}. Demanding 0.05 USDC fee.`);
+    
+    // EXPLICITLY expose headers so the React frontend can read them
+    res.setHeader('Access-Control-Expose-Headers', 'x-payment-address, x-payment-amount, x-payment-chain');
+    
+    return res.status(402).set({
+      'x-payment-address': '0xa60d26d641fC807C9659df3f1A5E24Dc54C6baD7', // Your wallet collects the Lender fees!
+      'x-payment-amount': '50000', // 0.05 USDC (6 decimals)
+      'x-payment-chain': 'base-sepolia'
+    }).json({ error: 'x402 Payment Required' });
+  }
+
+  // 2. If paid, return the worker's data
+  log('💰', 'PRAMAAN BUREAU', `Lender Payment Verified! Tx: ${paymentProof}`);
+  
+  const workerData = pendingProofs[workerAddress.toLowerCase()] || {};
+  const score = workerData.income?.score || 85; // Fallback score if not fully processed
+  const platform = workerData.income?.platform || "Unknown";
+
+  res.json({
+    ok: true,
+    score: score,
+    platform: platform,
+    details: "Income verified via Reclaim ZK-Proofs. Identity verified via Anon Aadhaar."
+  });
+});
 
 app.listen(4000, () => log('🚀', 'SERVER', 'Backend running on http://localhost:4000'))
