@@ -13,12 +13,12 @@
       "provider": "uber",
       "providerLabel": "Uber",
       "expiresAt": 1773448505734,
-      "updatedAt": 1773513936415,
+      "updatedAt": 1773547982950,
       "platform": "SBI",
       "proofHash": "16d59720b813121c1e003f08b584dccc0c9b550e8b970b050b0891dfd801fa1b",
       "scoreAssigned": true,
       "score": 83,
-      "scoreTxHash": "0xf87c1f4798287c88e07aade630332227bd8009b98ac8649d1e622e5ad5b28d05"
+      "scoreTxHash": "0xd9d8965a085b92fb146e9fef32c955603500a1f1647e4f6894f6e71d0ccef2db"
     }
   },
   "0x1111111111111111111111111111111111111111": {
@@ -58,8 +58,8 @@
       "proofHash": "6529a7b602d02835b8d83038dd4d9b490638217cee88a89cca55cb9e4f2829b0",
       "scoreAssigned": true,
       "score": 83,
-      "scoreTxHash": "0xea37ae00391fc19313d84400b7dd510021d1fac6561f4c6957e320f0265f3b42",
-      "updatedAt": 1773490626460
+      "scoreTxHash": "0x392506623d77d1c5569fb64081df071cb3e460f75c335f19b840acdfba7a4310",
+      "updatedAt": 1773544852493
     }
   },
   "0x746f74abba4e7d1f9f6ab09aef7ffb547fb05f8f": {
