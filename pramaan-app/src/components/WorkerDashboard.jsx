@@ -834,7 +834,6 @@ export default function WorkerDashboard() {
     setSubmitting(false)
   }
 
-  async function handleDebugFileverse(currentGigScore) {
     setDebugLoading(true)
     try {
       const res = await fetch(`http://localhost:8001/api/ddocs?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`, {
@@ -881,7 +880,6 @@ export default function WorkerDashboard() {
       setScoreTxState('success')
       
       // Automatically sync to Fileverse
-      handleDebugFileverse(data.score)
     } catch (err) {
       setScoreTxState('failed')
       setError('GigScore assignment failed: ' + err.message)

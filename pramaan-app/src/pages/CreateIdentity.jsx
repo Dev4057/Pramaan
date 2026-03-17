@@ -48,7 +48,6 @@ export default function CreateIdentity() {
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugDdoc, setDebugDdoc] = useState(null);
 
-  async function handleDebugFileverse(currentGigScore) {
     setDebugLoading(true);
     try {
       const res = await fetch(`http://localhost:8001/api/ddocs?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`, {
@@ -293,7 +292,6 @@ export default function CreateIdentity() {
 
           setTimeout(() => {
             setPhase("complete");
-            handleDebugFileverse(finalScore);
           }, 1000);
         } else {
           setDisplayScore(Math.floor(Math.random() * 900 + 100));

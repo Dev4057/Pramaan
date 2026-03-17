@@ -137,13 +137,6 @@ function extractPlatformFromProof(proof) {
   return claimData?.provider || claimData?.providerName || 'Unknown'
 }
 
-function calculateGigScore(platform, proofHash) {
-  const normalized = (platform || '').toLowerCase()
-  const base = normalized.includes('sbi') ? 72 : normalized.includes('uber') ? 68 : 62
-  const entropy = Number.parseInt((proofHash || '0').slice(0, 8), 16) || 0
-  const drift = entropy % 13
-  return Math.min(95, Math.max(50, base + drift))
-}
 
 function getAgentClients() {
   const account = privateKeyToAccount(AGENT_PRIVATE_KEY)
@@ -167,9 +160,6 @@ function requireReclaimConfig() {
   if (!APP_ID || !APP_SECRET) throw new Error('RECLAIM_APP_ID/RECLAIM_APP_SECRET are missing in backend .env')
 }
 
-async function storeInFileverse(walletAddress, proofData, type) {
-  try {
-    const res = await fetch(`${FILEVERSE_URL}/api/ddocs?apiKey=${FILEVERSE_API_KEY}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: `Pramaan ${type} Proof - ${walletAddress}`, content: JSON.stringify(proofData) })
     })
@@ -199,8 +189,6 @@ app.post('/api/zk/identity-proof/:walletAddress', (req, res) => {
 
 app.post('/api/zk/anon-aadhaar/:walletAddress', async (req, res) => {
   try {
-    const ddocId = await storeInFileverse(req.params.walletAddress, req.body.proof, 'anon-aadhaar')
-    res.json({ success: true, ddocId })
   } catch (err) { res.status(500).json({ error: 'Failed to save to Fileverse' }) }
 })
 
@@ -265,10 +253,6 @@ app.post('/api/reclaim/callback/income/:walletAddress', async (req, res) => {
     const { walletAddress } = req.params
     const proof = req.body
     const walletState = ensureWalletState(walletAddress)
-    walletState.income = { ready: true, type: 'income', platform: extractPlatformFromProof(proof), ddocId: await storeInFileverse(walletAddress, proof, 'income'), proofHash: generateProofHash(proof, walletAddress, 'income'), updatedAt: Date.now() }
-    savePendingProofs()
-    res.sendStatus(200)
-  } catch (err) { res.sendStatus(500) }
 })
 
 app.post('/api/reclaim/callback/identity/:walletAddress', async (req, res) => {
@@ -276,10 +260,6 @@ app.post('/api/reclaim/callback/identity/:walletAddress', async (req, res) => {
     const { walletAddress } = req.params
     const proof = req.body
     const walletState = ensureWalletState(walletAddress)
-    walletState.identity = { ready: true, type: 'identity', platform: 'Aadhaar', ddocId: await storeInFileverse(walletAddress, proof, 'identity'), proofHash: generateProofHash(proof, walletAddress, 'identity'), updatedAt: Date.now() }
-    savePendingProofs()
-    res.sendStatus(200)
-  } catch (err) { res.sendStatus(500) }
 })
 
 app.get('/api/reclaim/status/:type/:walletAddress', (req, res) => {
