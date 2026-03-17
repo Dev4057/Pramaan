@@ -310,16 +310,22 @@ app.post('/api/mock-elsa/analyze', async (req, res) => {
   try {
     const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
       model: 'llama3',
-      prompt: `Analyze this gig worker. Platform: ${req.body.platform}. They have verified ZK income proofs. Provide a 1-sentence professional credit risk insight.`,
-      stream: false
+      prompt: `You are a credit scoring AI. Analyze this gig worker on Platform: ${req.body.platform}. They have verified ZK income proofs. Reply ONLY with a valid JSON object containing two fields: "score" (integer between 50 and 99) and "insight" (1-sentence professional credit risk insight).`,
+      stream: false,
+      format: "json"
     });
 
-    const aiInsight = ollamaResponse.data.response;
+    let aiData;
+    try {
+      aiData = JSON.parse(ollamaResponse.data.response);
+    } catch(e) {
+      aiData = { score: 85, insight: ollamaResponse.data.response };
+    }
 
     res.json({
       success: true,
-      score: req.body.platform === 'Uber' ? 84 : 89,
-      insights: aiInsight,
+      score: parseInt(aiData.score) || 85,
+      insights: aiData.insight,
       agent: "Local OpenClaw (Ollama Llama3)"
     });
   } catch (err) {

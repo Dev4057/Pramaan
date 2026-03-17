@@ -468,9 +468,9 @@ export default function CreateIdentity() {
               {/* The Slim Premium Passport Card */}
               <div className="glass-card p-8 mb-8 border-success/30 shadow-xl shadow-success/5 relative overflow-hidden text-left bg-gradient-to-br from-background to-success/5">
                  <div className="flex justify-between items-start mb-8">
-                   <div>
-                     <h2 className="text-xs font-black uppercase tracking-[0.2em] text-success mb-1">Pramaan</h2>
-                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Digital Passport</p>
+                   <div className="bg-[#FFF9C4]/80 dark:bg-[#FFF9C4]/20 p-3 rounded-xl border border-yellow-200/50 backdrop-blur-sm shadow-sm inline-block">
+                     <h2 className="text-base md:text-lg font-black uppercase tracking-[0.2em] text-success mb-1 drop-shadow-sm">Pramaan</h2>
+                     <p className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-widest">Digital Passport</p>
                    </div>
                    <div className="text-right">
                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Gig Score</p>

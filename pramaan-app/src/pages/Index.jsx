@@ -19,8 +19,8 @@ const Index = () => {
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="glass-surface px-4 py-2">
-            <span className="text-sm font-semibold tracking-tight text-foreground">Pramaan</span>
+          <div className="glass-surface px-5 py-2.5 bg-[#FFF9C4]/90 dark:bg-[#FFF9C4]/20 backdrop-blur-xl rounded-xl border border-yellow-200/50">
+            <span className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground drop-shadow-sm">Pramaan</span>
           </div>
           
           {/* Web3 Connect Button */}
