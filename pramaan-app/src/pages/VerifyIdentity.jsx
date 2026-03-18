@@ -36,25 +36,6 @@ export default function VerifyIdentity() {
   const [workerAddress, setWorkerAddress] = useState('');
   const [lookupAddress, setLookupAddress] = useState(null);
   
-  async function openFileverseDdoc(id) {
-    if (!id) return;
-    try {
-      const res = await fetch(`http://localhost:8001/api/ddocs/${id}?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`);
-      if (!res.ok) {
-        alert("DDoc not found or not synced yet!");
-        return;
-      }
-      const data = await res.json();
-      if (data.link) {
-        window.open(data.link + '?dev-mode=true', '_blank');
-      } else {
-        alert("Document is still syncing to Fileverse. Please try again in a few seconds.");
-      }
-    } catch (err) {
-      console.error("Error opening dDoc:", err);
-      alert("Error fetching from local Fileverse node.");
-    }
-  }
 
   // State management for the complex dual-transaction flow
   const [paying, setPaying] = useState(false);
@@ -369,24 +350,6 @@ export default function VerifyIdentity() {
                     {isProfileLoading ? 'Loading...' : (profile?.[1] ? 'Confirmed' : 'Failed')}
                   </p>
                 </div>
-              </div>
-
-              {/* --- NEW FILEVERSE PROOF BUTTONS --- */}
-              <div className="grid grid-cols-2 gap-3 mt-4 mb-2">
-                <button 
-                  onClick={() => openFileverseDdoc(profile?.[4])}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/50 transition-all shadow-sm"
-                  title="View encrypted ZK proof on Fileverse"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Identity dDoc
-                </button>
-                <button 
-                  onClick={() => openFileverseDdoc(profile?.[5])}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/50 transition-all shadow-sm"
-                  title="View encrypted Reclaim proof on Fileverse"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Income dDoc
-                </button>
               </div>
 
               <button 

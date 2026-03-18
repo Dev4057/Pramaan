@@ -142,8 +142,6 @@ export default function WorkerDashboard() {
   const [incomeLoading, setIncomeLoading] = useState(false)
   const [scoreLoading, setScoreLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [debugLoading, setDebugLoading] = useState(false)
-  const [debugDdoc, setDebugDdoc] = useState(null)
 
   const [error, setError] = useState(null)
   const [selectedProvider, setSelectedProvider] = useState('sbi')
@@ -578,7 +576,7 @@ export default function WorkerDashboard() {
         }
       }
 
-      // Store in Fileverse via our backend
+      // Store ZK proof via our backend
       const res = await fetch(`http://localhost:3000/api/zk/anon-aadhaar/${address}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -587,7 +585,7 @@ export default function WorkerDashboard() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to save Anon Aadhaar proof to Fileverse')
+        throw new Error(errorData.error || 'Failed to save Anon Aadhaar proof')
       }
 
       const { ddocId } = await res.json()
@@ -834,32 +832,6 @@ export default function WorkerDashboard() {
     setSubmitting(false)
   }
 
-    setDebugLoading(true)
-    try {
-      const res = await fetch(`http://localhost:8001/api/ddocs?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: `Pramaan Final Debug State - ${address}`,
-          content: JSON.stringify({
-            address,
-            gigScore: currentGigScore !== undefined ? currentGigScore : gigScore,
-            identityData,
-            incomeData,
-            scoreTxHash,
-            timestamp: new Date().toISOString()
-          }, null, 2)
-        })
-      })
-      if (!res.ok) throw new Error("Failed connecting to local Fileverse API")
-      const data = await res.json()
-      setDebugDdoc(data?.data?.ddocId || data?.ddocId || "Unknown")
-    } catch (err) {
-      setError('Debug to Fileverse failed: ' + err.message)
-    }
-    setDebugLoading(false)
-  }
-
   // ─── Step 3: GigScore ───
   async function checkGigScore() {
     setScoreLoading(true)
@@ -879,7 +851,6 @@ export default function WorkerDashboard() {
       setScoreTxHash(data.txHash)
       setScoreTxState('success')
       
-      // Automatically sync to Fileverse
     } catch (err) {
       setScoreTxState('failed')
       setError('GigScore assignment failed: ' + err.message)
@@ -1188,9 +1159,6 @@ export default function WorkerDashboard() {
         {step2Done && (
           <div>
             <p style={{ color: ui.success, fontSize: '14px', margin: 0 }}>✓ Income verified and stored on-chain</p>
-            {incomeData?.ddocId && (
-              <p style={{ color: ui.muted, fontSize: '11px', marginTop: '4px' }}>Fileverse: {incomeData.ddocId}</p>
-            )}
           </div>
         )}
       </div>
@@ -1235,50 +1203,6 @@ export default function WorkerDashboard() {
               </div>
             )}
             
-            <div style={{ marginTop: '24px', borderTop: `1px solid ${ui.border}`, paddingTop: '24px' }}>
-              {(debugLoading || debugDdoc) && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '16px',
-                  borderRadius: '12px',
-                  background: ui.successSoft,
-                  border: `1px solid #c6dec5`,
-                  color: ui.success,
-                  fontSize: '14px',
-                  textAlign: 'center',
-                  wordBreak: 'break-all'
-                }}>
-                  {debugLoading ? (
-                    <span>Syncing Score to Fileverse...</span>
-                  ) : (
-                    <>
-                      Score synced to Fileverse! <br/>
-                      <strong>dDoc ID:</strong> {debugDdoc}
-                    </>
-                  )}
-                </div>
-              )}
-              
-              <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                <button 
-                  onClick={() => window.open('https://docs.fileverse.io/document/qFhjHXJQZTPyfvRqMGbjZs', '_blank')}
-                  style={{
-                    background: 'transparent',
-                    color: ui.text,
-                    border: `1px solid ${ui.border}`,
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  View on Fileverse
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>

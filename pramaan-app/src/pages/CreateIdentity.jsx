@@ -45,53 +45,6 @@ export default function CreateIdentity() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [error, setError] = useState(null);
 
-  const [debugLoading, setDebugLoading] = useState(false);
-  const [debugDdoc, setDebugDdoc] = useState(null);
-
-    setDebugLoading(true);
-    try {
-      const res = await fetch(`http://localhost:8001/api/ddocs?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: `Pramaan Final Debug State - ${address}`,
-          content: JSON.stringify({
-            address,
-            gigScore: currentGigScore !== undefined ? currentGigScore : gigScore,
-            finalProfile,
-            timestamp: new Date().toISOString()
-          }, null, 2)
-        })
-      });
-      if (!res.ok) throw new Error("Failed connecting to local Fileverse API");
-      const data = await res.json();
-      setDebugDdoc(data?.data?.ddocId || data?.ddocId || "Unknown");
-    } catch (err) {
-      console.error('Debug to Fileverse failed:', err);
-    }
-    setDebugLoading(false);
-  }
-
-  async function openFileverseDdoc(id) {
-    if (!id) return;
-    try {
-      const res = await fetch(`http://localhost:8001/api/ddocs/${id}?apiKey=8gqxM-bxHZ0cbIZSlK8cnFxMoq1yMiJL`);
-      if (!res.ok) {
-        alert("DDoc not found or not synced yet!");
-        return;
-      }
-      const data = await res.json();
-      if (data.link) {
-        window.open(data.link + '?dev-mode=true', '_blank');
-      } else {
-        alert("Document is still syncing to Fileverse. Please try again in a few seconds.");
-      }
-    } catch (err) {
-      console.error("Error opening dDoc:", err);
-      alert("Error fetching from local Fileverse node.");
-    }
-  }
-
   // Helper to safely read profile without ABI crashing
   async function getSafeProfile() {
     if (!publicClient || !address) return null;
@@ -492,11 +445,6 @@ export default function CreateIdentity() {
                  </div>
               </div>
 
-                            {debugDdoc && (
-                <p className="mt-5 text-[15px] text-muted-foreground font-mono">
-                  Debug State Sync: {debugDdoc}
-                </p>
-              )}
             </motion.div>
           )}
         </AnimatePresence>

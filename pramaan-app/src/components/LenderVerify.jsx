@@ -354,10 +354,6 @@ export default function LenderVerify() {
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span style={{ color: ui.muted }}>Fileverse Document</span>
-                  <span style={{ color: ui.text, fontSize: '12px' }}>{profile.identityDdocId || profile.incomeDdocId || 'N/A'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: ui.muted }}>Last Updated</span>
                   <span style={{ color: ui.text }}>
                     {profile.lastUpdated > 0
