@@ -4,21 +4,29 @@
       "ready": false,
       "type": "identity",
       "providerLabel": "Aadhaar",
-      "expiresAt": 1773443461978,
-      "updatedAt": 1773443341978
+      "expiresAt": 1774119362535,
+      "updatedAt": 1774119242535
     },
     "income": {
-      "ready": true,
+      "ready": false,
       "type": "income",
-      "provider": "uber",
-      "providerLabel": "Uber",
-      "expiresAt": 1773448505734,
-      "updatedAt": 1773643032893,
-      "platform": "SBI",
-      "proofHash": "16d59720b813121c1e003f08b584dccc0c9b550e8b970b050b0891dfd801fa1b",
+      "provider": "sbi",
+      "providerLabel": "SBI",
+      "expiresAt": 1774119785552,
+      "updatedAt": 1774119665552
+    },
+    "reputation": {
+      "ready": true,
+      "type": "reputation",
+      "provider": "github",
+      "providerLabel": "GitHub",
+      "expiresAt": 1774129683993,
+      "updatedAt": 1774129818226,
+      "platform": "github",
+      "proofHash": "104f04a7a88970f3aecd52dace3e30e4c74590ed67bc2e59cd312f4dcb273855",
       "scoreAssigned": true,
-      "score": 83,
-      "scoreTxHash": "0x8736860185dbe76fcaec1e676f0f7d43afb4ecbc3dc9307997c1ac5c8212136c"
+      "score": 0,
+      "scoreTxHash": "0x795aef9b89999eb972fd94ccb20d8ec7417ae36ea0d6125cca9bdee49f76e73e"
     }
   },
   "0x1111111111111111111111111111111111111111": {
@@ -84,6 +92,21 @@
       "score": 79,
       "scoreTxHash": "0x77ef56c90cc3679d9e452c9a68f8534a548e1288957fe807de8a8750f1f3d8db",
       "updatedAt": 1773560826208
+    },
+    "reputation": {
+      "ready": true,
+      "type": "reputation",
+      "provider": "github",
+      "providerLabel": "GitHub",
+      "expiresAt": 1774130670592,
+      "updatedAt": 1774130859918,
+      "proofHash": "72657075746174696f6e2d307831353838633743394132373442614331663936",
+      "ddocId": "fallback-1774130665478",
+      "contributions": 0,
+      "platform": "GitHub",
+      "scoreAssigned": true,
+      "score": 0,
+      "scoreTxHash": "0x0b27b42f67a7e8587a7fc6a3dc5c336d4281335a99ab9cdaabcaadd0f074ee4f"
     }
   }
 }

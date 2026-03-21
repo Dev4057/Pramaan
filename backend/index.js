@@ -1,3 +1,4 @@
+const { calculateDeveloperScore } = require("./src/services/ActuarialScoring.js");
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
@@ -37,17 +38,16 @@ const REQUEST_TTL_MS = 2 * 60 * 1000
 const ENABLE_MOCK_ZK = process.env.ENABLE_MOCK_ZK === 'true'
 const ENABLE_ZK_FLOW = process.env.ENABLE_ZK_FLOW === 'true'
 const RECLAIM_PROVIDER_IDENTITY = process.env.RECLAIM_PROVIDER_IDENTITY || '5d37bfc5-a44e-43e5-b44e-9430c2192f7d'
-const RECLAIM_PROVIDER_SBI = process.env.RECLAIM_PROVIDER_SBI || '343537da-09a8-4b34-a1dd-06a1166ff873'
-const RECLAIM_PROVIDER_UBER = process.env.RECLAIM_PROVIDER_UBER || ''
+const RECLAIM_PROVIDER_GITHUB = '8573efb4-4529-47d3-80da-eaa7384dac19'
 
 const STORE_DIR = path.join(__dirname, 'data')
 const STORE_FILE = path.join(STORE_DIR, 'pending-proofs.json')
 const MOCK_FIXTURE_FILE = path.join(STORE_DIR, 'mock-zk-fixtures.json')
 
-const PROVIDERS = { identity: RECLAIM_PROVIDER_IDENTITY, sbi: RECLAIM_PROVIDER_SBI, uber: RECLAIM_PROVIDER_UBER }
+const PROVIDERS = { identity: RECLAIM_PROVIDER_IDENTITY, github: RECLAIM_PROVIDER_GITHUB }
 
 const CONTRACT_ABI = [
-  { type: 'function', name: 'setGigScore', stateMutability: 'nonpayable', inputs: [{ name: '_worker', type: 'address' }, { name: '_score', type: 'uint8' }], outputs: [] },
+  { type: 'function', name: 'updateGigScore', stateMutability: 'nonpayable', inputs: [{ name: '_worker', type: 'address' }, { name: '_score', type: 'uint8' }, { name: '_dataHash', type: 'string' }], outputs: [] },
   { type: 'function', name: 'isVerified', stateMutability: 'view', inputs: [{ name: '_worker', type: 'address' }], outputs: [{ name: '', type: 'bool' }] }
 ]
 
@@ -127,8 +127,7 @@ function savePendingProofs() {
 }
 
 function getProviderDisplayName(provider) {
-  if (provider === 'sbi') return 'SBI'
-  if (provider === 'uber') return 'Uber'
+  if (provider === 'github') return 'GitHub'
   return 'Unknown'
 }
 
@@ -160,6 +159,9 @@ function requireReclaimConfig() {
   if (!APP_ID || !APP_SECRET) throw new Error('RECLAIM_APP_ID/RECLAIM_APP_SECRET are missing in backend .env')
 }
 
+async function storeProofData(walletAddress, type, proofData) {
+  try {
+    const res = await fetch('https://api.fileverse.com/v1/docs', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: `Pramaan ${type} Proof - ${walletAddress}`, content: JSON.stringify(proofData) })
     })
@@ -169,7 +171,8 @@ function requireReclaimConfig() {
 }
 
 function generateProofHash(proof, walletAddress, type) {
-  const str = `${type}-${walletAddress}-${JSON.stringify(proof).slice(0, 100)}-${Date.now()}`
+  const safeProofStr = proof ? JSON.stringify(proof) : "{}";
+  const str = `${type}-${walletAddress}-${safeProofStr.slice(0, 100)}-${Date.now()}`;
   return Buffer.from(str).toString('hex').slice(0, 64)
 }
 
@@ -237,22 +240,55 @@ app.post('/api/reclaim/identity-request', async (req, res) => {
 app.post('/api/reclaim/generate-request', async (req, res) => {
   try {
     requireReclaimConfig()
-    const { walletAddress, provider } = req.body
+    const { walletAddress, provider = 'github' } = req.body
     const reclaimProofRequest = await ReclaimProofRequest.init(APP_ID, APP_SECRET, PROVIDERS[provider])
-    reclaimProofRequest.setContext(walletAddress, `Pramaan income verification (${provider})`)
-    reclaimProofRequest.setAppCallbackUrl(`${CALLBACK_URL}/api/reclaim/callback/income/${walletAddress}`)
+    reclaimProofRequest.setContext(walletAddress, `Pramaan developer reputation verification (${provider})`)
+    reclaimProofRequest.setAppCallbackUrl(`${CALLBACK_URL}/api/reclaim/callback/reputation/${walletAddress}`)
     const walletState = ensureWalletState(walletAddress)
-    walletState.income = { ready: false, type: 'income', provider, providerLabel: getProviderDisplayName(provider), expiresAt: Date.now() + REQUEST_TTL_MS, updatedAt: Date.now() }
+    walletState.reputation = { ready: false, type: 'reputation', provider, providerLabel: getProviderDisplayName(provider), expiresAt: Date.now() + REQUEST_TTL_MS, updatedAt: Date.now() }
     savePendingProofs()
     res.json({ requestUrl: await reclaimProofRequest.getRequestUrl(), statusUrl: reclaimProofRequest.getStatusUrl() })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-app.post('/api/reclaim/callback/income/:walletAddress', async (req, res) => {
+app.post('/api/reclaim/callback/reputation/:walletAddress', async (req, res) => {
   try {
     const { walletAddress } = req.params
-    const proof = req.body
+    // Reclaim webhook payload can be an array of proofs or a single proof object
+    let proof = req.body;
+    if (Array.isArray(proof) && proof.length > 0) {
+        proof = proof[0];
+    }
+    
     const walletState = ensureWalletState(walletAddress)
+    if (!walletState.reputation) return res.status(400).json({ error: 'No pending reputation request' })
+
+    let contextObj;
+    try {
+        if (proof && proof.claimData && proof.claimData.context) {
+            contextObj = JSON.parse(proof.claimData.context);
+        } else {
+            contextObj = { extractedParameters: {} };
+        }
+    } catch (e) {
+        contextObj = { extractedParameters: {} };
+    }
+    
+    let rawContributions = contextObj?.extractedParameters?.contributions || proof?.extractedParameterValues?.contributions || '0';
+    const cleanContributions = String(rawContributions).replace(/,/g, '');
+    const contributionsCount = parseInt(cleanContributions, 10);
+
+    const proofHash = generateProofHash(proof, walletAddress, 'reputation')
+    const ddocId = await storeProofData(walletAddress, 'reputation', proof)
+
+    walletState.reputation = {
+      ...walletState.reputation, ready: true, proofHash, ddocId, contributions: contributionsCount,
+      updatedAt: Date.now(),
+      platform: 'GitHub'
+    }
+    savePendingProofs()
+    res.json({ ok: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 app.post('/api/reclaim/callback/identity/:walletAddress', async (req, res) => {
@@ -260,6 +296,7 @@ app.post('/api/reclaim/callback/identity/:walletAddress', async (req, res) => {
     const { walletAddress } = req.params
     const proof = req.body
     const walletState = ensureWalletState(walletAddress)
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 app.get('/api/reclaim/status/:type/:walletAddress', (req, res) => {
@@ -336,73 +373,33 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
     const basePublicClient = createPublicClient({ chain: baseSepolia, transport: baseTransport })
     const baseWalletClient = createWalletClient({ account, chain: baseSepolia, transport: baseTransport })
 
-    const proofState = walletState.income
+    const proofState = walletState.reputation
     let platform
     let scoreEntropyHash
 
     if (proofState?.ready) {
       platform = proofState.platform || proofState.providerLabel || 'Unknown'
-      scoreEntropyHash = proofState.proofHash || generateProofHash({ platform }, walletAddress, 'income')
+      scoreEntropyHash = proofState.proofHash || generateProofHash({ platform }, walletAddress, 'reputation')
     } else {
       platform = typeof platformOverride === 'string' && platformOverride.trim() ? platformOverride.trim() : 'SBI'
       scoreEntropyHash = toDeterministicHash(`${normalizedWallet}:${platform.toLowerCase()}:zk-score-v1`)
     }
 
-    log('🤖', 'HEYELSA', `Initiating OpenClaw analysis for ${walletAddress}`)
 
-    let aiScore;
-    const elsaUrl = 'http://localhost:4000/api/mock-elsa/analyze';
-    const aiPayload = { workerAddress: walletAddress, platform: platform };
+    const calcScore = calculateDeveloperScore(proofState?.contributions || 0);
+    const devScore = calcScore;
 
-    try {
-      const response = await axios.post(elsaUrl, aiPayload);
-      aiScore = parseInt(response.data.score);
-    } catch (error) {
-      if (error.response && error.response.status === 402) {
-        log('💸', 'X402', '402 Payment Required detected. Processing micro-payment...');
-        
-        const amountRaw = error.response.headers['x-payment-amount'] || '20000';
-        const paymentAmount = BigInt(amountRaw); 
-        const paymentAddress = error.response.headers['x-payment-address'] || '0xa60d26d641fC807C9659df3f1A5E24Dc54C6baD7';
-
-        const paymentTxHash = await baseWalletClient.writeContract({
-          address: BASE_USDC_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: 'transfer',
-          args: [paymentAddress, paymentAmount]
-        });
-        
-        log('✅', 'X402', `Payment sent on Base Sepolia! Tx: ${paymentTxHash}`);
-        await basePublicClient.waitForTransactionReceipt({ hash: paymentTxHash });
-
-        log('🤖', 'HEYELSA', 'Retrying OpenClaw analysis with Payment Proof...');
-        const retryResponse = await axios.post(elsaUrl, aiPayload, {
-          headers: { 'x-payment-proof': paymentTxHash }
-        });
-
-        aiScore = parseInt(retryResponse.data.score);
-        log('🧠', 'HEYELSA', `OpenClaw returned GigScore: ${aiScore}`);
-      } else {
-        log('⚠️', 'HEYELSA', `API failed (${error.message}). Falling back to math.`);
-        aiScore = calculateGigScore(platform, scoreEntropyHash);
-      }
-    }
-
-    if (isNaN(aiScore) || aiScore < 50 || aiScore > 95) {
-        aiScore = calculateGigScore(platform, scoreEntropyHash);
-    }
-
-    log('⛓️', 'STEP 3', `Minting GigScore ${aiScore} to Pramaan Smart Contract...`);
+    log('⛓️', 'STEP 3', `Minting GigScore ${devScore} to Pramaan Smart Contract...`);
     const txHash = await sepoliaWalletClient.writeContract({
-      account, address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'setGigScore', args: [walletAddress, aiScore]
+      account, address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'updateGigScore', args: [walletAddress, devScore, scoreEntropyHash]
     })
     await sepoliaPublicClient.waitForTransactionReceipt({ hash: txHash })
 
-    walletState.income = { ...(proofState || {}), ready: true, type: 'income', platform, proofHash: scoreEntropyHash, scoreAssigned: true, score: aiScore, scoreTxHash: txHash, updatedAt: Date.now() }
+    walletState.reputation = { ...(proofState || {}), ready: true, type: 'reputation', platform, proofHash: scoreEntropyHash, scoreAssigned: true, score: devScore, scoreTxHash: txHash, updatedAt: Date.now() }
     pendingProofs[normalizedWallet] = walletState
     savePendingProofs()
 
-    res.json({ ok: true, score: aiScore, txHash, platform, agent: "HeyElsa OpenClaw (Simulator)" })
+    res.json({ ok: true, score: devScore, txHash, platform, agent: "Mathematical Model" })
   } catch (err) {
     log('❌', 'STEP 3', `Score assignment failed: ${err.message}`)
     res.status(500).json({ error: err.message })

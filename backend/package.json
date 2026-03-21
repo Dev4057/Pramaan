@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test tests/"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "^7.5.0",
     "@reclaimprotocol/js-sdk": "^4.15.0",
     "axios": "^1.13.6",
     "cors": "^2.8.6",
@@ -19,5 +20,8 @@
     "express": "^5.2.1",
     "node-fetch": "^3.3.2",
     "viem": "^2.47.2"
+  },
+  "devDependencies": {
+    "prisma": "^7.5.0"
   }
 }

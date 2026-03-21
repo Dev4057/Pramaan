@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  walletAddress  String        @id
+  nullifierHash  String        @unique // Used to ensure one human = one wallet
+  isHuman        Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  ScoreProfile   ScoreProfile? // One-to-one relation
+}
+
+model ScoreProfile {
+  id             String   @id @default(uuid())
+  walletAddress  String   @unique // Foreign key linking to User
+  computedScore  Int
+  aiRiskReport   String   @db.Text
+  lastTxHash     String
+  expiresAt      DateTime
+  isDefaulted    Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [walletAddress], references: [walletAddress], onDelete: Cascade)
+}

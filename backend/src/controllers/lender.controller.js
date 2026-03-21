@@ -1,48 +1,51 @@
 // backend/src/controllers/lender.controller.js
+const crypto = require('crypto');
 const ActuarialScoring = require('../services/ActuarialScoring');
 const AgentReport = require('../services/AgentReport');
 const OnChainMinter = require('../services/OnChainMinter');
+const prisma = require('../config/prisma');
 
-// Mock Database (Replace with actual Database later, e.g., Prisma)
-const mockDatabase = {};
-
-// Assuming this function is triggered after Reclaim data is successfully verified
+/**
+ * Orchestrates the complete end-to-end lifecycle of a user's reputation score generation.
+ * Ties together the deterministic math engine, cryptographic hashing, blockchain minter,
+ * and the AI text generator in a strict, sequential pipeline.
+ *
+ * @param {Object} req - The Express request object.
+ * @param {Object} res - The Express response object.
+ */
 async function processAndMintScore(req, res) {
     try {
+        // Step A: Data Extraction
         const { workerAddress, verifiedData } = req.body;
         const { income, trips, rating } = verifiedData;
 
-        // 1. Calculate deterministic score (Math)
-        const finalScore = ActuarialScoring.calculateScore(income, trips, rating);
+        // Step B: Deterministic Scoring (Math)
+        // Calculating score synchronously using the verified data.
+        const finalScore = ActuarialScoring.calculateGigScore(verifiedData);
 
-        // 2. Generate a secure hash of the raw data for on-chain anchoring
-        // Using a simple mock hash for demonstration
-        const dataHash = `0x${Buffer.from(JSON.stringify(verifiedData)).toString('hex').slice(0, 64)}`; 
+        // Step C: Cryptographic Data Hashing
+        // Creating a SHA-256 hash formatting it as an "0x" prefixed hex string
+        const dataHash = "0x" + crypto.createHash('sha256').update(JSON.stringify(verifiedData)).digest('hex');
 
-        // 3. Mint the score to the Blockchain (The Source of Truth)
-        console.log(`Minting score ${finalScore} for ${workerAddress}...`);
+        // Step D: Blockchain State Commitment (The Source of Truth)
+        // This MUST succeed for the flow to continue.
         const txHash = await OnChainMinter.mintGigScore(workerAddress, finalScore, dataHash);
 
-        // 4. Generate the Human-Readable Risk Report (AI)
-        const aiReport = await AgentReport.generateRiskReport(finalScore, verifiedData);
+        // Step E: AI Risk Narrative Generation (NLG)
+        const aiAnalysis = await AgentReport.generateRiskReport(finalScore, verifiedData);
 
-        // 5. Save to Database (Acting strictly as Off-Chain Cache)
-        mockDatabase[workerAddress.toLowerCase()] = {
-            currentScore: finalScore, 
-            riskReport: aiReport, 
-            lastTxHash: txHash 
-        };
-
+        // Step F: HTTP Response
         return res.status(200).json({
             status: "Success",
-            message: "Soulbound GigScore Minted",
+            message: "Soulbound GigScore successfully minted to Sepolia.",
             score: finalScore,
             transactionHash: txHash,
-            reportReady: true
+            ai_analysis: aiAnalysis
         });
 
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        console.error("Score Formulation Architecture Pipeline Error:", error);
+        return res.status(500).json({ error: "System failure during score generation and minting." });
     }
 }
 
@@ -72,11 +75,12 @@ async function getLenderReport(req, res) {
         }
 
         // 3. Fetch detailed context purely from cache (DB)
-        const cacheEntry = mockDatabase[workerAddress.toLowerCase()];
+        const cacheEntry = await prisma.scoreProfile.findUnique({
+            where: { walletAddress }
+        });
         
         // Ensure cache aligns with chain realistically
         if (!cacheEntry) {
-             // Rebuild report if possible, or fail gracefully
              return res.status(404).json({ error: "Detailed report not found in cache." });
         }
 
@@ -84,7 +88,7 @@ async function getLenderReport(req, res) {
             status: "Valid",
             onChainScore: profile.score,
             expiresAt: profile.expiresAt,
-            ai_analysis: cacheEntry.riskReport,
+            ai_analysis: cacheEntry.aiRiskReport,
             recentTxHash: cacheEntry.lastTxHash
         });
 

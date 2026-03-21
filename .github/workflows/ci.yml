@@ -1,0 +1,54 @@
+name: Pramaan CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-smart-contracts:
+    name: Smart Contract Verification (Foundry)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build Contracts and Check Sizes
+        working-directory: ./pramaan-contract
+        run: forge build --sizes
+
+      - name: Run Solidity Tests
+        working-directory: ./pramaan-contract
+        run: forge test -vvv
+
+  test-backend-logic:
+    name: Backend Logic & Math Verification (Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: './backend/package-lock.json'
+
+      - name: Install Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        run: npm test

@@ -4,6 +4,8 @@ import { QRCode } from 'react-qr-code'
 import { LogInWithAnonAadhaar, useAnonAadhaar, useProver } from '@anon-aadhaar/react'
 import PramaanABI from '../abi/Pramaan.json'
 
+import { ReclaimProofRequest } from '@reclaimprotocol/js-sdk'
+
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'
 const USE_TEST_AADHAAR = import.meta.env.VITE_USE_TEST_AADHAAR === 'true'
@@ -144,7 +146,7 @@ export default function WorkerDashboard() {
   const [submitting, setSubmitting] = useState(false)
 
   const [error, setError] = useState(null)
-  const [selectedProvider, setSelectedProvider] = useState('sbi')
+  const [selectedProvider, setSelectedProvider] = useState('github')
 
   const [identityData, setIdentityData] = useState(null)
   const [incomeData, setIncomeData] = useState(null)
@@ -675,22 +677,62 @@ export default function WorkerDashboard() {
     setError(null)
     setPreflightError(null)
     try {
-      if (selectedProvider === 'uber' && !ENABLE_UBER_PROVIDER) {
-        throw new Error('Uber provider is currently disabled. Use SBI or enable UBER provider in env.')
-      }
+      if (selectedProvider === 'github') {
+        // Now GitHub Contributions
+        const reclaimProofRequest = await ReclaimProofRequest.init(
+          import.meta.env.VITE_RECLAIM_APP_ID || "0x1E3F61532Abf31F49c1Fa970240eBf5b38bb99E2", // fallback or use process wrapper
+          import.meta.env.VITE_RECLAIM_APP_SECRET || "956b128822c45d9e83efe8f0a023ccaca8094b45a6376596656dda24912ca199",
+          '8573efb4-4529-47d3-80da-eaa7384dac19'
+        )
 
-      await runReclaimPreflight()
-      const res = await fetch(`${BACKEND_URL}/api/reclaim/generate-request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: address, provider: selectedProvider })
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setIncomeQR(data.requestUrl)
+        reclaimProofRequest.setAppCallbackUrl(`${BACKEND_URL}/api/reclaim/webhook`)
+
+        const requestUrl = await reclaimProofRequest.getRequestUrl()
+        setIncomeQR(requestUrl)
+
+        await reclaimProofRequest.startSession({
+          onSuccessCallback: async (proofs) => {
+            console.log('Proof received:', proofs)
+            setIncomeQR(null)
+            // Post to backend webhook
+            try {
+              const res = await fetch(`${BACKEND_URL}/api/reclaim/webhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proofs, workerAddress: address })
+              })
+              const data = await res.json()
+              if (!res.ok) throw new Error(data.error || 'Failed webhook processing')
+
+              // The backend will mint the score, we just update frontend
+              setStep2Done(true)
+              setGigScore(data.score) // or simply fetch score
+              checkGigScore()
+            } catch (err) {
+              setError('Webhook processing failed: ' + err.message)
+            }
+          },
+          onFailureCallback: (error) => {
+            console.error('Proof generation failed', error)
+            setIncomeQR(null)
+            setError('Proof generation failed')
+          }
+        })
+      } else {
+        // Fallback for non-github flow or original logic
+        await runReclaimPreflight()
+        const res = await fetch(`${BACKEND_URL}/api/reclaim/generate-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress: address, provider: selectedProvider })
+        })
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
+        setIncomeQR(data.requestUrl)
+      }
     } catch (err) {
       setPreflightError(err.message)
-      setError('Failed to generate income QR: ' + err.message)
+      setError('Failed to generate GitHub claim QR: ' + err.message)
     }
     setIncomeLoading(false)
   }
@@ -761,12 +803,12 @@ export default function WorkerDashboard() {
         throw new Error('Identity transaction is not finalized yet. Wait a few seconds and retry income submission.')
       }
 
-      const gas = await getSafeGasLimit('submitIncomeZK', [proof, publicSignals, ddocId, platform || 'SBI'])
+      const gas = await getSafeGasLimit('submitIncomeZK', [proof, publicSignals, ddocId, platform || 'GitHub'])
       const hash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
         functionName: 'submitIncomeZK',
-        args: [proof, publicSignals, ddocId, platform || 'SBI'],
+        args: [proof, publicSignals, ddocId, platform || 'GitHub'],
         gas
       })
       console.log('Income ZK tx:', hash)
@@ -809,12 +851,12 @@ export default function WorkerDashboard() {
         return
       }
 
-      const gas = await getSafeGasLimit('submitIncome', [ddocId, platform || 'SBI', proofHash])
+      const gas = await getSafeGasLimit('submitIncome', [ddocId, platform || 'GitHub', proofHash])
       const hash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
         functionName: 'submitIncome',
-        args: [ddocId, platform || 'SBI', proofHash],
+        args: [ddocId, platform || 'GitHub', proofHash],
         gas
       })
       console.log('Income tx:', hash)
@@ -842,7 +884,7 @@ export default function WorkerDashboard() {
       const res = await fetch(`${BACKEND_URL}/api/agent/score/${address}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: incomeData?.platform || selectedProvider?.toUpperCase?.() || 'SBI' })
+        body: JSON.stringify({ platform: incomeData?.platform || selectedProvider?.toUpperCase?.() || 'GitHub' })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to assign score')
@@ -1094,7 +1136,7 @@ export default function WorkerDashboard() {
           {step2Done && <span style={{ color: ui.success, fontSize: '18px', fontWeight: 'bold' }}>✓ Done</span>}
         </div>
         <p style={{ color: ui.muted, fontSize: '13px', marginBottom: '16px' }}>
-          Prove your income via SBI bank account or Uber driver account. Encrypted and stored privately via Reclaim Protocol.
+          Prove your income via GitHub bank account or GitHub driver account. Encrypted and stored privately via Reclaim Protocol.
         </p>
 
         {renderTxStatus(incomeTxState, incomeTxHash, 'Income transaction')}
@@ -1109,17 +1151,17 @@ export default function WorkerDashboard() {
           <div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <button
-                onClick={() => setSelectedProvider('sbi')}
-                style={{ background: selectedProvider === 'sbi' ? ui.accentSoft : 'transparent', color: selectedProvider === 'sbi' ? ui.accent : ui.muted, border: `1px solid ${ui.border}`, padding: '6px 14px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px' }}
+                onClick={() => setSelectedProvider('github')}
+                style={{ background: selectedProvider === 'github' ? ui.accentSoft : 'transparent', color: selectedProvider === 'github' ? ui.accent : ui.muted, border: `1px solid ${ui.border}`, padding: '6px 14px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px' }}
               >
-                SBI Bank
+                GitHub
               </button>
               {ENABLE_UBER_PROVIDER && (
                 <button
-                  onClick={() => setSelectedProvider('uber')}
-                  style={{ background: selectedProvider === 'uber' ? ui.accentSoft : 'transparent', color: selectedProvider === 'uber' ? ui.accent : ui.muted, border: `1px solid ${ui.border}`, padding: '6px 14px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px' }}
+                  onClick={() => setSelectedProvider('github')}
+                  style={{ background: selectedProvider === 'github' ? ui.accentSoft : 'transparent', color: selectedProvider === 'github' ? ui.accent : ui.muted, border: `1px solid ${ui.border}`, padding: '6px 14px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px' }}
                 >
-                  Uber Driver
+                  GitHub Contributions
                 </button>
               )}
             </div>
@@ -1128,7 +1170,7 @@ export default function WorkerDashboard() {
               disabled={incomeLoading}
               style={{ background: ui.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
             >
-              {incomeLoading ? 'Generating...' : USE_MOCK_ZK ? `Verify ${selectedProvider === 'sbi' ? 'SBI' : 'Uber'} Income (${mockIncomeModeLabel})` : `Verify ${selectedProvider === 'sbi' ? 'SBI' : 'Uber'} Income`}
+              {incomeLoading ? 'Generating...' : USE_MOCK_ZK ? `Verify ${selectedProvider === 'github' ? 'GitHub' : 'GitHub Contributions'} (${mockIncomeModeLabel})` : `Verify ${selectedProvider === 'github' ? 'GitHub' : 'GitHub Contributions'}`}
             </button>
           </div>
         )}
@@ -1136,7 +1178,7 @@ export default function WorkerDashboard() {
         {incomeQR && (
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: ui.muted, fontSize: '13px', marginBottom: '12px' }}>
-              Scan with your phone → Login to {selectedProvider === 'sbi' ? 'SBI NetBanking' : 'Uber'} → Proof auto-submits
+              Scan with your phone → Login to {selectedProvider === 'github' ? 'GitHub NetBanking' : 'GitHub'} → Proof auto-submits
             </p>
             <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', display: 'inline-block' }}>
               <QRCode value={incomeQR} size={qrSize} />

@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, Exte
 import { useNavigate } from "react-router-dom";
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { LogInWithAnonAadhaar, useAnonAadhaar, useProver } from '@anon-aadhaar/react';
-import QRCode from 'react-qr-code';
+import { QRCode } from 'react-qr-code';
 import PramaanABI from '../abi/Pramaan.json';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
@@ -41,9 +41,10 @@ export default function CreateIdentity() {
   const [finalProfile, setFinalProfile] = useState(null);
 
   const [identityQR, setIdentityQR] = useState(null);
-  const [selectedProvider, setSelectedProvider] = useState('sbi');
+  const [selectedProvider, setSelectedProvider] = useState('github');
   const [loadingAction, setLoadingAction] = useState(false);
   const [error, setError] = useState(null);
+  const [reclaimIncomeQR, setReclaimIncomeQR] = useState(null);
 
   // Helper to safely read profile without ABI crashing
   async function getSafeProfile() {
@@ -183,52 +184,61 @@ export default function CreateIdentity() {
   }, [identityQR, step1Done, address]);
 
 
-  // --- STEP 2: MOCK INCOME ---
-  const handleVerifyMockIncome = async () => {
+  const handleGenerateReclaimIncomeQR = async () => {
     setLoadingAction(true); setError(null);
-
     try {
-      const profile = await getSafeProfile();
-
-      if (profile && profile.incomeVerified) {
-        setStep2Done(true);
-        setPhase("processing");
-        generateGigScore(profile.platform || selectedProvider);
-        return;
-      }
-
-      const res = await fetch(`${BACKEND_URL}/api/mock/income-verify/${address}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: selectedProvider })
+      const res = await fetch(`${BACKEND_URL}/api/reclaim/generate-request`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletAddress: address, provider: selectedProvider })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Mock income verification failed');
-
-      setPhase("processing"); 
-
-      const gas = await getSafeGasLimit('submitIncome', [data.ddocId, data.platform, data.proofHash]); 
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'submitIncome', args: [data.ddocId, data.platform, data.proofHash], gas 
-      });
-      await publicClient.waitForTransactionReceipt({ hash });
-      
-      setStep2Done(true);
-      generateGigScore(data.platform);
-    } catch (err) {
-      console.error(err);
-      setError(err?.shortMessage || err?.message || 'Income submission failed');
-      setPhase("income"); 
-    }
+      if (data.error) throw new Error(data.error);
+      setReclaimIncomeQR(data.requestUrl);
+    } catch (err) { setError(err.message); }
     setLoadingAction(false);
   };
 
+  useEffect(() => {
+    if (!reclaimIncomeQR || step2Done || !address) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/reclaim/status/reputation/${address}`);
+        const data = await res.json();
+        if (data.ready) {
+          clearInterval(interval);
+          setReclaimIncomeQR(null);
+          setLoadingAction(true);
+          
+          try {
+            const platformName = data.platform || data.provider || 'GitHub';
+            const gas = await getSafeGasLimit('submitIncome', [data.ddocId, platformName, data.proofHash]);
+            const hash = await writeContractAsync({
+              address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'submitIncome', args: [data.ddocId, platformName, data.proofHash], gas
+            });
+            await publicClient.waitForTransactionReceipt({ hash });
+            
+            setStep2Done(true);
+            setPhase("processing");
+            generateGigScore(platformName);
+          } catch (txErr) {
+            console.error(txErr);
+            setError(txErr?.shortMessage || txErr?.message || "Transaction failed or rejected. Please try again.");
+            setLoadingAction(false);
+          }
+        }
+      } catch (err) { console.error(err); }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [reclaimIncomeQR, step2Done, address]);
+
+  // --- SCORE & UI EFFECTS ---
   // --- STEP 3: REAL SCORING ---
   const generateGigScore = async (platform) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/agent/score/${address}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: platform || 'SBI' })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: platform || 'GitHub' })
       });
       const data = await res.json();
-      const finalScore = data.score || 750;
+      const finalScore = data.score !== undefined ? data.score : 0;
       
       setGigScore(finalScore);
 
@@ -276,11 +286,10 @@ export default function CreateIdentity() {
             <motion.div key="identity" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4 }}>
               <p className="text-sm text-primary font-medium uppercase tracking-wider mb-3">Step 1</p>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground mb-2">Prove Your Identity</h1>
-              <p className="text-muted-foreground mb-8 text-pretty">Securely verify you are over 18 using Anon Aadhaar (ZK-Proof) or DigiLocker.</p>
+              <p className="text-muted-foreground mb-8 text-pretty">Securely verify you are over 18 using Anon Aadhaar (ZK-Proof).</p>
 
               <div className="glass-card p-6 flex flex-col gap-6">
                 <div className="flex flex-col items-center gap-4 p-4 rounded-xl border border-border bg-white/50">
-                  <p className="text-sm font-medium">Option A: Zero-Knowledge Proof</p>
                   <LogInWithAnonAadhaar nullifierSeed={ANON_NULLIFIER_SEED} fieldsToReveal={['revealAgeAbove18']} signal={address || '0x0'} />
                   {anonAadhaar?.status === 'logged-in' && (
                     <button onClick={handleSubmitAnonIdentity} disabled={loadingAction} className="w-full mt-2 py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition shadow-lg shadow-primary/20">
@@ -288,51 +297,33 @@ export default function CreateIdentity() {
                     </button>
                   )}
                 </div>
-
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-border"></div>
-                  <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs">OR</span>
-                  <div className="flex-grow border-t border-border"></div>
-                </div>
-
-                <div className="flex flex-col items-center gap-4">
-                  {!identityQR ? (
-                    <button onClick={handleGenerateIdentityQR} disabled={loadingAction} className="w-full py-3 rounded-xl bg-secondary text-secondary-foreground font-medium border border-border hover:brightness-95 transition">
-                      {loadingAction ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Generate Reclaim QR (DigiLocker)"}
-                    </button>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-xs text-muted-foreground mb-4">Scan with your phone to prove identity</p>
-                      <div className="bg-white p-4 rounded-xl inline-block shadow-sm">
-                        <QRCode value={identityQR} size={180} />
-                      </div>
-                      <p className="text-xs text-primary animate-pulse mt-4">Waiting for proof...</p>
-                    </div>
-                  )}
-                </div>
               </div>
             </motion.div>
           )}
 
-          {/* PHASE 2: MOCK INCOME */}
+          {/* PHASE 2: DEVELOPER REPUTATION */}
           {phase === "income" && (
             <motion.div key="income" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4 }}>
               <p className="text-sm text-primary font-medium uppercase tracking-wider mb-3">Step 2</p>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">Connect Platform</h1>
-              <p className="text-muted-foreground mb-8 text-pretty">Select your primary source of gig income to verify your consistent earnings history.</p>
+              <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">Connect GitHub</h1>
+              <p className="text-muted-foreground mb-8 text-pretty">Verify your developer contributions cryptographically via Reclaim Network to generate your Pramaan Developer Score.</p>
 
               <div className="glass-card p-6">
-                <div className="flex gap-4 mb-6">
-                  <button onClick={() => setSelectedProvider('sbi')} className={`flex-1 py-4 rounded-xl text-sm font-medium border transition-all ${selectedProvider === 'sbi' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>
-                    SBI Bank
-                  </button>
-                  <button onClick={() => setSelectedProvider('uber')} className={`flex-1 py-4 rounded-xl text-sm font-medium border transition-all ${selectedProvider === 'uber' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>
-                    Uber
-                  </button>
+                <div className="flex flex-col items-center gap-4">
+                  {!reclaimIncomeQR ? (
+                    <button onClick={handleGenerateReclaimIncomeQR} disabled={loadingAction} className="w-full py-4 rounded-xl bg-primary text-white font-medium hover:brightness-95 transition shadow-lg shadow-primary/20">
+                      {loadingAction ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Verify GitHub Contributions"}
+                    </button>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-muted-foreground mb-4">Scan with your phone to prove GitHub contributions</p>
+                      <div className="bg-white p-4 rounded-xl inline-block shadow-sm">
+                        <QRCode value={reclaimIncomeQR} size={180} />
+                      </div>
+                      <p className="text-xs text-primary animate-pulse mt-4">Waiting for proof of Github Contributions...</p>
+                    </div>
+                  )}
                 </div>
-                <button onClick={handleVerifyMockIncome} disabled={loadingAction} className="w-full py-4 rounded-xl bg-primary text-white font-medium hover:brightness-95 transition shadow-lg shadow-primary/20">
-                  {loadingAction ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `Verify ${selectedProvider.toUpperCase()} On-Chain`}
-                </button>
               </div>
             </motion.div>
           )}
@@ -391,7 +382,7 @@ export default function CreateIdentity() {
                 {/* Box 4: The Spinning Score */}
                 <div className="glass-card p-6 flex-1 w-full text-center border-border">
                   <Shield className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Gig Score</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Developer Score</p>
                   <p className="text-5xl font-black tabular-nums tracking-tighter text-primary">
                     {displayScore}
                   </p>
@@ -424,7 +415,7 @@ export default function CreateIdentity() {
                      <p className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-widest">Digital Passport</p>
                    </div>
                    <div className="text-right">
-                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Gig Score</p>
+                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Developer Score</p>
                      <p className="text-5xl font-black tracking-tighter tabular-nums text-foreground">{gigScore}</p>
                    </div>
                  </div>
@@ -440,7 +431,7 @@ export default function CreateIdentity() {
                       <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                       <span className="text-[10px] font-bold text-success uppercase tracking-wider">On-Chain Minted</span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase">{finalProfile?.platform || 'SBI'} Network</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase">{finalProfile?.platform?.length > 20 ? 'GitHub' : (finalProfile?.platform || 'GitHub')} Network</p>
                    </div>
                  </div>
               </div>
