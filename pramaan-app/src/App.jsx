@@ -16,8 +16,8 @@ import LenderDashboard from "./pages/LenderDashboard";
 // Reading straight from your perfect .env file
 const config = getDefaultConfig({
   appName: 'Pramaan',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
-  chains: [sepolia, baseSepolia],
+  projectId: "89c54866970235aa5f6d3e50442a4f8b",
+  chains: [baseSepolia, sepolia],
   transports: {
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),

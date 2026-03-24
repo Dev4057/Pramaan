@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, ExternalLink, Bot, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
 import { LogInWithAnonAadhaar, useAnonAadhaar, useProver } from '@anon-aadhaar/react';
 import { QRCode } from 'react-qr-code';
 import PramaanABI from '../abi/Pramaan.json';
@@ -134,7 +135,7 @@ export default function CreateIdentity() {
       const ddocId = `anon-aadhaar:${address.toLowerCase()}:${Date.now()}`;
       const gas = await getSafeGasLimit('submitIdentity', [ddocId, proofHash]); 
 
-      const hash = await writeContractAsync({
+      const hash = await writeContractAsync({ chainId: baseSepolia.id, 
         address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'submitIdentity', args: [ddocId, proofHash], gas 
       });
       await publicClient.waitForTransactionReceipt({ hash });
@@ -171,7 +172,7 @@ export default function CreateIdentity() {
           clearInterval(interval);
           setIdentityQR(null);
           const gas = await getSafeGasLimit('submitIdentity', [data.ddocId, data.proofHash]);
-          const hash = await writeContractAsync({
+          const hash = await writeContractAsync({ chainId: baseSepolia.id, 
             address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'submitIdentity', args: [data.ddocId, data.proofHash], gas
           });
           await publicClient.waitForTransactionReceipt({ hash });
@@ -211,7 +212,7 @@ export default function CreateIdentity() {
           try {
             const platformName = data.platform || data.provider || 'GitHub';
             const gas = await getSafeGasLimit('submitIncome', [data.ddocId, platformName, data.proofHash]);
-            const hash = await writeContractAsync({
+            const hash = await writeContractAsync({ chainId: baseSepolia.id, 
               address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'submitIncome', args: [data.ddocId, platformName, data.proofHash], gas
             });
             await publicClient.waitForTransactionReceipt({ hash });

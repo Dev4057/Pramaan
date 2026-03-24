@@ -13,7 +13,7 @@ const { baseSepolia } = require('viem/chains')
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: "50mb" }))
 
 function log(emoji, tag, msg) {
   const ts = new Date().toLocaleTimeString()
@@ -274,9 +274,21 @@ app.post('/api/reclaim/callback/reputation/:walletAddress', async (req, res) => 
         contextObj = { extractedParameters: {} };
     }
     
-    let rawContributions = contextObj?.extractedParameters?.contributions || proof?.extractedParameterValues?.contributions || '0';
+    // Extract parameters whatever Reclaim decides to call them
+    const params = Object.assign({}, proof?.extractedParameterValues, contextObj?.extractedParameters);
+    console.log("🔍 RECLAIM PARAMS RECEIVED:", JSON.stringify(params, null, 2)); console.log("📦 RAW PROOF DATA EXTRACTED PARAMS:", JSON.stringify(proof?.extractedParameterValues)); console.log("📦 RAW CONTEXT PARAMS:", JSON.stringify(contextObj?.extractedParameters)); 
+    
+    // Try to find contributions directly, or any number in the params
+    let rawContributions = params.contributions || params.totalContributions || params.commits || params.yearlyContributions;
+    
+    if (!rawContributions) {
+        // Fallback: look for the first parameter that looks like a valid large number string (e.g. "423")
+        const possibleNumbers = Object.values(params).filter(v => typeof v === 'string' && !isNaN(parseInt(v.replace(/,/g, ''), 10)) && parseInt(v.replace(/,/g, ''), 10) > 0);
+        rawContributions = possibleNumbers.length > 0 ? possibleNumbers[0] : '0';
+    }
     const cleanContributions = String(rawContributions).replace(/,/g, '');
     const contributionsCount = parseInt(cleanContributions, 10);
+    console.log("🧮 PARSED CONTRIBUTIONS:", contributionsCount);
 
     const proofHash = generateProofHash(proof, walletAddress, 'reputation')
     const ddocId = await storeProofData(walletAddress, 'reputation', proof)
@@ -367,7 +379,7 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
 
     const normalizedWallet = walletAddress.toLowerCase()
     const walletState = pendingProofs[normalizedWallet] || {}
-    const { publicClient: sepoliaPublicClient, walletClient: sepoliaWalletClient, account } = getAgentClients()
+    const account = privateKeyToAccount(AGENT_PRIVATE_KEY);
     
     const baseTransport = http(process.env.BASE_RPC_URL || 'https://sepolia.base.org')
     const basePublicClient = createPublicClient({ chain: baseSepolia, transport: baseTransport })
@@ -390,10 +402,10 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
     const devScore = calcScore;
 
     log('⛓️', 'STEP 3', `Minting GigScore ${devScore} to Pramaan Smart Contract...`);
-    const txHash = await sepoliaWalletClient.writeContract({
+    const txHash = await baseWalletClient.writeContract({
       account, address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'updateGigScore', args: [walletAddress, devScore, scoreEntropyHash]
     })
-    await sepoliaPublicClient.waitForTransactionReceipt({ hash: txHash })
+    await basePublicClient.waitForTransactionReceipt({ hash: txHash })
 
     walletState.reputation = { ...(proofState || {}), ready: true, type: 'reputation', platform, proofHash: scoreEntropyHash, scoreAssigned: true, score: devScore, scoreTxHash: txHash, updatedAt: Date.now() }
     pendingProofs[normalizedWallet] = walletState
@@ -442,4 +454,4 @@ app.get('/api/lender/worker-score/:workerAddress', async (req, res) => {
   });
 });
 
-app.listen(4000, () => log('🚀', 'SERVER', 'Backend running on http://localhost:4000'))
+app.listen(4000, () => log('🚀', 'SERVER', 'Backend running on http://localhost:4000')).on("error", (err) => { console.error(err); });
