@@ -20,15 +20,16 @@
       "type": "reputation",
       "provider": "github",
       "providerLabel": "GitHub",
-      "expiresAt": 1774373870532,
-      "updatedAt": 1774373977952,
+      "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/fcf34dffeb",
+      "expiresAt": 1774465221114,
+      "updatedAt": 1774465296866,
       "proofHash": "72657075746174696f6e2d307861363064323664363431664338303743393635",
-      "ddocId": "fallback-1774373898274",
-      "contributions": 0,
+      "ddocId": "fallback-1774465219466",
+      "contributions": 422,
       "platform": "GitHub",
       "scoreAssigned": true,
-      "score": 0,
-      "scoreTxHash": "0x64fab0362750f17f02942f779ad9c424cdf59c6ebfdf007fb78f568c5aaf3b4a"
+      "score": 60,
+      "scoreTxHash": "0xa9a8fda9dfd2b1b053a7ec3f9a727443d224a0057e0e26b907fc320e5f521639"
     }
   },
   "0x1111111111111111111111111111111111111111": {

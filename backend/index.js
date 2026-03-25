@@ -14,6 +14,9 @@ const { baseSepolia } = require('viem/chains')
 const app = express()
 app.use(cors())
 app.use(express.json({ limit: "50mb" }))
+// Reclaim SDK sometimes sends callbacks as URL-encoded form or plain text
+app.use(express.urlencoded({ extended: true, limit: "50mb" }))
+app.use(express.text({ type: 'text/*', limit: "50mb" }))
 
 function log(emoji, tag, msg) {
   const ts = new Date().toLocaleTimeString()
@@ -136,6 +139,140 @@ function extractPlatformFromProof(proof) {
   return claimData?.provider || claimData?.providerName || 'Unknown'
 }
 
+/**
+ * Extracts GitHub contribution count from a Reclaim proof object.
+ * Tries every known location across SDK versions.
+ */
+function extractContributionsFromProof(proof) {
+  // Safety: parse if delivered as a string (startSession does this)
+  if (typeof proof === 'string') {
+    try { proof = JSON.parse(proof); } catch (_) { return 0; }
+  }
+  const src1 = proof?.extractedParameterValues || {};
+
+  let src2 = {};
+  try {
+    if (proof?.claimData?.context) {
+      const ctx = typeof proof.claimData.context === 'string'
+        ? JSON.parse(proof.claimData.context) : proof.claimData.context;
+      src2 = ctx?.extractedParameters || {};
+    }
+  } catch (_) {}
+
+  let src3 = {};
+  let src3pv = {};
+  try {
+    if (proof?.claimData?.parameters) {
+      const p = typeof proof.claimData.parameters === 'string'
+        ? JSON.parse(proof.claimData.parameters) : proof.claimData.parameters;
+      if (typeof p === 'object' && p !== null) {
+        src3 = p;
+        if (typeof p.paramValues === 'object' && p.paramValues !== null) src3pv = p.paramValues;
+      }
+    }
+  } catch (_) {}
+
+  let src4 = {};
+  try {
+    if (proof?.parameters) {
+      const p = typeof proof.parameters === 'string'
+        ? JSON.parse(proof.parameters) : proof.parameters;
+      src4 = (typeof p === 'object' && p !== null) ? p : {};
+    }
+  } catch (_) {}
+
+  // src3pv (paramValues) has highest priority — it's where Reclaim v4 puts extracted values
+  const params = Object.assign({}, src4, src3, src3pv, src2, src1);
+
+  log('🔍', 'RECLAIM PARAMS', `merged: ${JSON.stringify(params)}`)
+
+  let raw =
+    params.contributions || params.totalContributions || params.total_contributions ||
+    params.commits || params.yearlyContributions || params.yearly_contributions ||
+    params.contributionCount || params.contribution_count || params.githubContributions;
+
+  if (!raw) {
+    const numericVals = Object.values(params).filter(v => {
+      const n = parseInt(String(v).replace(/,/g, ''), 10);
+      return !isNaN(n) && n > 0;
+    });
+    if (numericVals.length > 0) raw = numericVals[0];
+  }
+
+  const count = parseInt(String(raw || '0').replace(/,/g, '').trim(), 10) || 0;
+  log('🧮', 'PARSED CONTRIBUTIONS', `${count}`)
+  return count;
+}
+
+/**
+ * Fetches proof from Reclaim status URL and returns the first proof object if ready.
+ * Returns null if not ready yet.
+ */
+async function fetchProofFromStatusUrl(statusUrl) {
+  try {
+    const r = await fetch(statusUrl);
+    const data = await r.json();
+    log('🔬', 'STATUS URL', `Response keys: ${Object.keys(data || {}).join(', ')}`)
+    log('🔬', 'STATUS URL', `Full response: ${JSON.stringify(data).slice(0, 1200)}`)
+
+    // Try every known location Reclaim uses across SDK versions
+    const proofs =
+      data?.session?.proofs ||
+      data?.session?.statusV2?.proofs ||
+      data?.session?.verifiedProofs ||
+      data?.proofs ||
+      data?.statusV2?.proofs ||
+      data?.verifiedProofs ||
+      (Array.isArray(data) ? data : null);
+    if (proofs && proofs.length > 0) {
+      let p = proofs[0];
+      if (typeof p === 'string') { try { p = JSON.parse(p); } catch (_) {} }
+      return p;
+    }
+  } catch (err) {
+    log('⚠️', 'STATUS URL', `Fetch failed: ${err.message}`)
+  }
+  return null;
+}
+
+/**
+ * Retry fetching proof from statusUrl with delays.
+ * Reclaim's onSuccess fires as a notification — the actual proof data
+ * becomes available at the statusUrl shortly after.
+ */
+async function fetchProofFromStatusUrlWithRetry(statusUrl, maxRetries = 5, delayMs = 3000) {
+  for (let i = 0; i < maxRetries; i++) {
+    log('🔄', 'STATUS RETRY', `Attempt ${i + 1}/${maxRetries} for statusUrl...`)
+    const proof = await fetchProofFromStatusUrl(statusUrl);
+    if (proof) return proof;
+    if (i < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  log('❌', 'STATUS RETRY', `All ${maxRetries} attempts exhausted — proof not available at statusUrl`)
+  return null;
+}
+
+/**
+ * Normalises a Reclaim body that may have been misrouted by express.urlencoded():
+ * When Reclaim sends JSON with wrong Content-Type, Express treats the whole JSON
+ * string as a URL-encoded key → { '{"identifier":...}': '' }
+ */
+function decodeReclaimBody(rawBody) {
+  let body = rawBody;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (_) {}
+  }
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const keys = Object.keys(body);
+    if (keys.length === 1 && keys[0].trimStart().startsWith('{')) {
+      try { body = JSON.parse(keys[0]); } catch (_) {}
+    }
+  }
+  if (Array.isArray(body) && body.length > 0) body = body[0];
+  return body;
+}
+
 
 function getAgentClients() {
   const account = privateKeyToAccount(AGENT_PRIVATE_KEY)
@@ -229,7 +366,7 @@ app.post('/api/reclaim/identity-request', async (req, res) => {
     const { walletAddress } = req.body
     const reclaimProofRequest = await ReclaimProofRequest.init(APP_ID, APP_SECRET, PROVIDERS.identity)
     reclaimProofRequest.setContext(walletAddress, 'Pramaan identity verification')
-    reclaimProofRequest.setAppCallbackUrl(`${CALLBACK_URL}/api/reclaim/callback/identity/${walletAddress}`)
+    reclaimProofRequest.setAppCallbackUrl(`${CALLBACK_URL}/api/reclaim/callback/identity/${walletAddress}`, true)
     const walletState = ensureWalletState(walletAddress)
     walletState.identity = { ready: false, type: 'identity', providerLabel: 'Aadhaar', expiresAt: Date.now() + REQUEST_TTL_MS, updatedAt: Date.now() }
     savePendingProofs()
@@ -243,64 +380,177 @@ app.post('/api/reclaim/generate-request', async (req, res) => {
     const { walletAddress, provider = 'github' } = req.body
     const reclaimProofRequest = await ReclaimProofRequest.init(APP_ID, APP_SECRET, PROVIDERS[provider])
     reclaimProofRequest.setContext(walletAddress, `Pramaan developer reputation verification (${provider})`)
-    reclaimProofRequest.setAppCallbackUrl(`${CALLBACK_URL}/api/reclaim/callback/reputation/${walletAddress}`)
+    // Keep callback URL as a fallback for older SDK behaviour
+    reclaimProofRequest.setAppCallbackUrl(`${CALLBACK_URL}/api/reclaim/callback/reputation/${walletAddress}`, true)
+    const requestUrl = await reclaimProofRequest.getRequestUrl()
+    const statusUrl = reclaimProofRequest.getStatusUrl()
+
     const walletState = ensureWalletState(walletAddress)
-    walletState.reputation = { ready: false, type: 'reputation', provider, providerLabel: getProviderDisplayName(provider), expiresAt: Date.now() + REQUEST_TTL_MS, updatedAt: Date.now() }
+    walletState.reputation = {
+      ready: false, type: 'reputation', provider,
+      providerLabel: getProviderDisplayName(provider),
+      statusUrl,
+      expiresAt: Date.now() + REQUEST_TTL_MS,
+      updatedAt: Date.now()
+    }
     savePendingProofs()
-    res.json({ requestUrl: await reclaimProofRequest.getRequestUrl(), statusUrl: reclaimProofRequest.getStatusUrl() })
+
+    // ── PRIMARY DELIVERY MECHANISM ──
+    // Reclaim SDK v4 delivers proofs via an internal WebSocket / long-poll session.
+    // startSession() runs in the background; onSuccess fires the moment the proof arrives.
+    // setAppCallbackUrl above is kept only as a secondary fallback.
+    reclaimProofRequest.startSession({
+      onSuccess: async (proofs) => {
+        try {
+          log('✅', 'RECLAIM SESSION', `onSuccess fired for ${walletAddress}`)
+          log('🔬', 'RAW onSuccess', `type=${typeof proofs}, isArray=${Array.isArray(proofs)}`)
+          log('🔬', 'RAW onSuccess', `value=${(JSON.stringify(proofs) || 'undefined').slice(0, 800)}`)
+
+          // Normalize: Reclaim SDK delivers proofs in various shapes across versions
+          let proof = null;
+
+          if (typeof proofs === 'string') {
+            try { proof = JSON.parse(proofs); } catch (_) { proof = proofs; }
+          } else if (Array.isArray(proofs) && proofs.length > 0) {
+            proof = proofs[0];
+          } else if (proofs && typeof proofs === 'object') {
+            if (proofs.proofs && Array.isArray(proofs.proofs) && proofs.proofs.length > 0) {
+              proof = proofs.proofs[0];
+            } else if (proofs.claimData || proofs.identifier) {
+              proof = proofs;
+            } else {
+              const vals = Object.values(proofs);
+              for (const v of vals) {
+                if (v && typeof v === 'object' && (v.claimData || v.identifier)) { proof = v; break; }
+                if (typeof v === 'string' && v.startsWith('{')) { try { proof = JSON.parse(v); break; } catch (_) {} }
+              }
+            }
+          }
+
+          // Final string→object parse
+          if (typeof proof === 'string') {
+            try { proof = JSON.parse(proof); } catch (_) {}
+          }
+
+          // ── CRITICAL FIX: onSuccess often fires with empty [] as a notification ──
+          // The actual proof data must be fetched from statusUrl with retries.
+          const isEmptyOrInvalid = !proof || (typeof proof === 'object' && !proof.claimData && !proof.identifier && Object.keys(proof).length === 0);
+          if (isEmptyOrInvalid) {
+            log('⚠️', 'RECLAIM SESSION', `onSuccess delivered empty/notification — fetching proof from statusUrl with retries...`)
+            const ws = ensureWalletState(walletAddress)
+            const sUrl = ws.reputation?.statusUrl
+            if (sUrl) {
+              proof = await fetchProofFromStatusUrlWithRetry(sUrl, 5, 3000);
+            }
+          }
+
+          if (!proof || typeof proof !== 'object' || (!proof.claimData && !proof.identifier)) {
+            log('❌', 'RECLAIM SESSION', `Could not obtain proof for ${walletAddress} from onSuccess or statusUrl`)
+            return;
+          }
+
+          log('🔬', 'NORMALIZED PROOF', `type=${typeof proof}, keys=[${Object.keys(proof).join(', ')}]`)
+
+          const ws = ensureWalletState(walletAddress)
+          if (!ws.reputation?.ready) {
+            await applyReputationProof(proof, walletAddress, ws)
+          }
+        } catch (e) {
+          log('❌', 'RECLAIM SESSION', `onSuccess error: ${e.message}`)
+        }
+      },
+      onFailure: (err) => {
+        log('❌', 'RECLAIM SESSION', `Session failed for ${walletAddress}: ${err}`)
+      }
+    }).catch(err => log('⚠️', 'RECLAIM SESSION', `startSession threw: ${err?.message}`))
+
+    log('🔗', 'RECLAIM', `Session started for ${walletAddress}. QR ready.`)
+    res.json({ requestUrl, statusUrl })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
+
+// Shared helper: given a verified proof object, update walletState and persist
+async function applyReputationProof(proof, walletAddress, walletState) {
+  // CRITICAL: startSession delivers proofs as JSON *strings*, not objects.
+  // Also handle nested arrays: proofs might be [["proof-string"]] or ["proof-string"]
+  if (typeof proof === 'string') {
+    try { proof = JSON.parse(proof); } catch (_) {}
+  }
+  if (Array.isArray(proof)) {
+    proof = proof[0];
+    if (typeof proof === 'string') {
+      try { proof = JSON.parse(proof); } catch (_) {}
+    }
+  }
+
+  // GUARD: never set ready=true without a real proof object
+  if (!proof || typeof proof !== 'object') {
+    log('❌', 'APPLY PROOF', `Rejected: proof is ${proof === null ? 'null' : typeof proof}. Will NOT mark as ready.`)
+    return 0;
+  }
+
+  log('🔬', 'PROOF STRUCTURE', `type=${typeof proof}, keys=[${Object.keys(proof).join(', ')}]`)
+  log('🔬', 'PROOF SAMPLE', JSON.stringify(proof).slice(0, 500))
+
+  const contributions = extractContributionsFromProof(proof)
+
+  // GUARD: do not mark ready with 0 contributions — extraction likely failed
+  if (contributions === 0) {
+    log('⚠️', 'APPLY PROOF', `Contributions extracted as 0. NOT marking as ready. Proof keys: [${Object.keys(proof).join(', ')}]`)
+    return 0;
+  }
+
+  const proofHash = generateProofHash(proof, walletAddress, 'reputation')
+  const ddocId = await storeProofData(walletAddress, 'reputation', proof)
+  walletState.reputation = {
+    ...walletState.reputation,
+    ready: true, proofHash, ddocId,
+    contributions,
+    updatedAt: Date.now(),
+    platform: 'GitHub'
+  }
+  savePendingProofs()
+  log('✅', 'RECLAIM', `Proof applied. contributions=${contributions}`)
+  return contributions
+}
 
 app.post('/api/reclaim/callback/reputation/:walletAddress', async (req, res) => {
   try {
     const { walletAddress } = req.params
-    // Reclaim webhook payload can be an array of proofs or a single proof object
-    let proof = req.body;
-    if (Array.isArray(proof) && proof.length > 0) {
-        proof = proof[0];
-    }
-    
     const walletState = ensureWalletState(walletAddress)
     if (!walletState.reputation) return res.status(400).json({ error: 'No pending reputation request' })
 
-    let contextObj;
-    try {
-        if (proof && proof.claimData && proof.claimData.context) {
-            contextObj = JSON.parse(proof.claimData.context);
-        } else {
-            contextObj = { extractedParameters: {} };
-        }
-    } catch (e) {
-        contextObj = { extractedParameters: {} };
-    }
-    
-    // Extract parameters whatever Reclaim decides to call them
-    const params = Object.assign({}, proof?.extractedParameterValues, contextObj?.extractedParameters);
-    console.log("🔍 RECLAIM PARAMS RECEIVED:", JSON.stringify(params, null, 2)); console.log("📦 RAW PROOF DATA EXTRACTED PARAMS:", JSON.stringify(proof?.extractedParameterValues)); console.log("📦 RAW CONTEXT PARAMS:", JSON.stringify(contextObj?.extractedParameters)); 
-    
-    // Try to find contributions directly, or any number in the params
-    let rawContributions = params.contributions || params.totalContributions || params.commits || params.yearlyContributions;
-    
-    if (!rawContributions) {
-        // Fallback: look for the first parameter that looks like a valid large number string (e.g. "423")
-        const possibleNumbers = Object.values(params).filter(v => typeof v === 'string' && !isNaN(parseInt(v.replace(/,/g, ''), 10)) && parseInt(v.replace(/,/g, ''), 10) > 0);
-        rawContributions = possibleNumbers.length > 0 ? possibleNumbers[0] : '0';
-    }
-    const cleanContributions = String(rawContributions).replace(/,/g, '');
-    const contributionsCount = parseInt(cleanContributions, 10);
-    console.log("🧮 PARSED CONTRIBUTIONS:", contributionsCount);
+    log('📨', 'RECLAIM CB RAW', `req.body type=${typeof req.body}, isArray=${Array.isArray(req.body)}, keys=[${Object.keys(req.body || {}).join(', ')}]`)
+    log('📨', 'RECLAIM CB RAW', `content=${JSON.stringify(req.body).slice(0, 500)}`)
 
-    const proofHash = generateProofHash(proof, walletAddress, 'reputation')
-    const ddocId = await storeProofData(walletAddress, 'reputation', proof)
+    // Attempt 1: proof in the request body
+    const bodyData = decodeReclaimBody(req.body)
+    const bodyHasProof = bodyData && typeof bodyData === 'object'
+      && (bodyData.claimData || bodyData.identifier || bodyData.proofs)
 
-    walletState.reputation = {
-      ...walletState.reputation, ready: true, proofHash, ddocId, contributions: contributionsCount,
-      updatedAt: Date.now(),
-      platform: 'GitHub'
+    if (bodyHasProof) {
+      log('📨', 'RECLAIM CB', `Proof in body. claimData: ${!!bodyData.claimData}`)
+      const contributions = await applyReputationProof(bodyData, walletAddress, walletState)
+      return res.json({ ok: true, contributions })
     }
-    savePendingProofs()
-    res.json({ ok: true })
-  } catch (err) { res.status(500).json({ error: err.message }) }
+
+    // Attempt 2: fetch from Reclaim statusUrl (v4 sends empty notification)
+    if (walletState.reputation.statusUrl) {
+      log('📨', 'RECLAIM CB', 'Body empty — fetching from Reclaim statusUrl...')
+      const proof = await fetchProofFromStatusUrl(walletState.reputation.statusUrl)
+      if (proof) {
+        const contributions = await applyReputationProof(proof, walletAddress, walletState)
+        return res.json({ ok: true, contributions })
+      }
+      log('⚠️', 'RECLAIM CB', 'Proof not ready at statusUrl yet — will be picked up by next frontend poll')
+    }
+
+    // Return 200 so Reclaim does not retry endlessly
+    res.json({ ok: true, status: 'pending' })
+  } catch (err) {
+    log('❌', 'RECLAIM CB', `Error: ${err.message}`)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 app.post('/api/reclaim/callback/identity/:walletAddress', async (req, res) => {
@@ -311,10 +561,35 @@ app.post('/api/reclaim/callback/identity/:walletAddress', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-app.get('/api/reclaim/status/:type/:walletAddress', (req, res) => {
-  const status = (pendingProofs[req.params.walletAddress.toLowerCase()] || {})[req.params.type]
-  if (status && !status.ready && status.expiresAt && Date.now() > status.expiresAt) return res.json({ ready: false, expired: true })
-  res.json(status && status.ready ? status : { ready: false })
+app.get('/api/reclaim/status/:type/:walletAddress', async (req, res) => {
+  const { type, walletAddress } = req.params
+  const walletState = pendingProofs[walletAddress.toLowerCase()] || {}
+  const status = walletState[type]
+
+  if (status && !status.ready && status.expiresAt && Date.now() > status.expiresAt) {
+    return res.json({ ready: false, expired: true })
+  }
+
+  // Already ready — return immediately
+  if (status?.ready) return res.json(status)
+
+  // Not ready yet — log so we can confirm frontend is actually polling
+  log('⏳', 'STATUS POLL', `type=${type} wallet=${walletAddress.slice(0,8)} — not ready yet`)
+
+  // statusUrl fallback: Reclaim might make the proof available here eventually
+  if (type === 'reputation' && status?.statusUrl) {
+    try {
+      const proof = await fetchProofFromStatusUrl(status.statusUrl)
+      if (proof) {
+        log('✅', 'STATUS POLL', `Proof found at Reclaim statusUrl for ${walletAddress}`)
+        const ws = ensureWalletState(walletAddress)
+        await applyReputationProof(proof, walletAddress, ws)
+        return res.json(ws.reputation)
+      }
+    } catch (_) {}
+  }
+
+  res.json({ ready: false })
 })
 
 // =========================================================================
@@ -390,28 +665,59 @@ app.post('/api/agent/score/:walletAddress', async (req, res) => {
     let scoreEntropyHash
 
     if (proofState?.ready) {
-      platform = proofState.platform || proofState.providerLabel || 'Unknown'
+      platform = proofState.platform || proofState.providerLabel || 'GitHub'
       scoreEntropyHash = proofState.proofHash || generateProofHash({ platform }, walletAddress, 'reputation')
     } else {
-      platform = typeof platformOverride === 'string' && platformOverride.trim() ? platformOverride.trim() : 'SBI'
+      platform = typeof platformOverride === 'string' && platformOverride.trim() ? platformOverride.trim() : 'GitHub'
       scoreEntropyHash = toDeterministicHash(`${normalizedWallet}:${platform.toLowerCase()}:zk-score-v1`)
     }
 
+    const contributions = proofState?.contributions || 0;
+    log('📊', 'STEP 2', `Contributions from proof: ${contributions}, Platform: ${platform}`)
 
-    const calcScore = calculateDeveloperScore(proofState?.contributions || 0);
-    const devScore = calcScore;
+    // Guard: do not mint a score of 0 — it means the Reclaim proof either hasn't
+    // arrived yet or the parameter extraction failed. Return an actionable error.
+    if (contributions === 0 && !proofState?.ready) {
+      return res.status(400).json({
+        error: 'No verified proof found for this wallet. Complete GitHub verification via Reclaim first.',
+        hint: 'Call POST /api/reclaim/generate-request to start the verification flow.'
+      })
+    }
 
-    log('⛓️', 'STEP 3', `Minting GigScore ${devScore} to Pramaan Smart Contract...`);
+    const devScore = calculateDeveloperScore(contributions);
+    log('⛓️', 'STEP 3', `Minting GigScore ${devScore} (from ${contributions} contributions) to Pramaan Smart Contract...`);
+
+    if (devScore === 0) {
+      log('⚠️', 'STEP 3', `Score is 0 — Reclaim proof was received but contributions could not be extracted. Check the callback logs.`)
+      return res.status(400).json({
+        error: 'Score calculated as 0. GitHub contributions were not extracted from the Reclaim proof.',
+        contributions,
+        hint: 'Check the /api/reclaim/callback logs. The extractedParameterValues field may be empty.'
+      })
+    }
+
     const txHash = await baseWalletClient.writeContract({
       account, address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'updateGigScore', args: [walletAddress, devScore, scoreEntropyHash]
     })
     await basePublicClient.waitForTransactionReceipt({ hash: txHash })
+    log('✅', 'STEP 3', `Score ${devScore} minted. TxHash: ${txHash}`)
 
-    walletState.reputation = { ...(proofState || {}), ready: true, type: 'reputation', platform, proofHash: scoreEntropyHash, scoreAssigned: true, score: devScore, scoreTxHash: txHash, updatedAt: Date.now() }
+    walletState.reputation = {
+      ...(proofState || {}),
+      ready: true,
+      type: 'reputation',
+      platform,
+      proofHash: scoreEntropyHash,
+      scoreAssigned: true,
+      score: devScore,
+      contributions,
+      scoreTxHash: txHash,
+      updatedAt: Date.now()
+    }
     pendingProofs[normalizedWallet] = walletState
     savePendingProofs()
 
-    res.json({ ok: true, score: devScore, txHash, platform, agent: "Mathematical Model" })
+    res.json({ ok: true, score: devScore, contributions, txHash, platform, agent: "Mathematical Model" })
   } catch (err) {
     log('❌', 'STEP 3', `Score assignment failed: ${err.message}`)
     res.status(500).json({ error: err.message })
@@ -439,18 +745,41 @@ app.get('/api/lender/worker-score/:workerAddress', async (req, res) => {
     }).json({ error: 'x402 Payment Required' });
   }
 
-  // 2. If paid, return the worker's data
+  // 2. Payment received — return the worker's verified data
   log('💰', 'PRAMAAN BUREAU', `Lender Payment Verified! Tx: ${paymentProof}`);
-  
+
   const workerData = pendingProofs[workerAddress.toLowerCase()] || {};
-  const score = workerData.income?.score || 85; // Fallback score if not fully processed
-  const platform = workerData.income?.platform || "Unknown";
+  const reputation = workerData.reputation || {};
+
+  if (!reputation.scoreAssigned) {
+    return res.status(404).json({
+      ok: false,
+      error: 'No score found for this worker. Worker must complete GitHub verification and score generation first.'
+    });
+  }
+
+  const score = reputation.score || 0;
+  const platform = reputation.platform || 'GitHub';
+  const contributions = reputation.contributions || 0;
+  const scoreTxHash = reputation.scoreTxHash || null;
+  const updatedAt = reputation.updatedAt ? new Date(reputation.updatedAt).toISOString() : null;
+
+  // Generate AI analysis via AgentReport
+  let aiAnalysis = 'Score verified on-chain via Pramaan Protocol.';
+  try {
+    const AgentReport = require('./src/services/AgentReport');
+    aiAnalysis = await AgentReport.generateRiskReport(score, contributions);
+  } catch (_) {}
 
   res.json({
     ok: true,
-    score: score,
-    platform: platform,
-    details: "Income verified via Reclaim ZK-Proofs. Identity verified via Anon Aadhaar."
+    score,
+    platform,
+    contributions,
+    scoreTxHash,
+    updatedAt,
+    details: `${contributions} GitHub contributions verified via Reclaim ZK-Proofs. Score minted on-chain.`,
+    ai_analysis: aiAnalysis
   });
 });
 

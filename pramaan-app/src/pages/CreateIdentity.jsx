@@ -208,22 +208,47 @@ export default function CreateIdentity() {
           clearInterval(interval);
           setReclaimIncomeQR(null);
           setLoadingAction(true);
-          
+
+          const platformName = data.platform || data.provider || 'GitHub';
+
           try {
-            const platformName = data.platform || data.provider || 'GitHub';
+            // Check on-chain first — if incomeVerified is already true, skip the tx
+            const profile = await getSafeProfile();
+            if (profile?.incomeVerified) {
+              console.log('incomeVerified already true on-chain, skipping submitIncome');
+              setStep2Done(true);
+              setPhase("processing");
+              generateGigScore(platformName);
+              return;
+            }
+
             const gas = await getSafeGasLimit('submitIncome', [data.ddocId, platformName, data.proofHash]);
-            const hash = await writeContractAsync({ chainId: baseSepolia.id, 
-              address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'submitIncome', args: [data.ddocId, platformName, data.proofHash], gas
+            const hash = await writeContractAsync({
+              chainId: baseSepolia.id,
+              address: CONTRACT_ADDRESS,
+              abi: PramaanABI.abi,
+              functionName: 'submitIncome',
+              args: [data.ddocId, platformName, data.proofHash],
+              gas
             });
             await publicClient.waitForTransactionReceipt({ hash });
-            
+
             setStep2Done(true);
             setPhase("processing");
             generateGigScore(platformName);
           } catch (txErr) {
-            console.error(txErr);
-            setError(txErr?.shortMessage || txErr?.message || "Transaction failed or rejected. Please try again.");
-            setLoadingAction(false);
+            // If the proof was already used, treat it as already verified and proceed
+            const errMsg = txErr?.shortMessage || txErr?.message || '';
+            if (errMsg.includes('Proof already used') || errMsg.includes('already used')) {
+              console.log('Proof already on-chain, proceeding to score generation');
+              setStep2Done(true);
+              setPhase("processing");
+              generateGigScore(platformName);
+            } else {
+              console.error(txErr);
+              setError(errMsg || "Transaction failed or rejected. Please try again.");
+              setLoadingAction(false);
+            }
           }
         }
       } catch (err) { console.error(err); }

@@ -1,39 +1,40 @@
 const crypto = require('crypto');
-const { Reclaim } = require('@reclaimprotocol/js-sdk');
+const { verifyProof } = require('@reclaimprotocol/js-sdk');
 const ActuarialScoring = require('../services/ActuarialScoring');
 const AgentReport = require('../services/AgentReport');
 const OnChainMinter = require('../services/OnChainMinter');
 
 async function handleReclaimWebhook(req, res) {
     try {
-        const { proofs, workerAddress } = req.body;
+        // 1. Support workerAddress from body (frontend fetch) or query params (Reclaim backend callback)
+        const workerAddress = req.body.workerAddress || req.query.workerAddress;
 
-        if (!proofs || proofs.length === 0 || !workerAddress) {
-            return res.status(400).json({ error: "Missing proofs or workerAddress" });
+        // 2. Robustly extract proofs depending on the caller's payload structure
+        let proofs = req.body.proofs;
+        if (!proofs) {
+            proofs = Array.isArray(req.body) ? req.body : (req.body?.claimData ? [req.body] : []);
         }
 
-        // 1. Cryptographically verify the proof
-        const isValid = await Reclaim.verifySignedProof(proofs[0]);
+        if (!proofs || proofs.length === 0 || !workerAddress) {
+            return res.status(400).json({ error: "Missing proofs or workerAddress. If using setAppCallbackUrl, ensure ?workerAddress=... is appended to the URL." });
+        }
+
+        // 3. Cryptographically verify the proof
+        const isValid = await verifyProof(proofs[0]);
         if (!isValid) {
             return res.status(400).json({ error: "Invalid Reclaim proof signature" });
         }
 
-        // 2. Extract the GitHub contributions variable
-        let contextObj;
-        try {
-            contextObj = JSON.parse(proofs[0].claimData.context);
-        } catch (e) {
-            return res.status(400).json({ error: "Malformed proof context" });
-        }
-        
-        const rawContributions = contextObj?.extractedParameters?.contributions;
-        
+        // 4. Extract the GitHub contributions variable
+        const extractedParams = proofs[0].extractedParameterValues || {};
+        const rawContributions = extractedParams.contributions || extractedParams.totalContributions;
+
         if (!rawContributions) {
             return res.status(400).json({ error: "Contributions data missing in proof" });
         }
 
         // Strip commas and parse to integer (e.g., "1,200" -> 1200)
-        const contributionsCount = parseInt(rawContributions.replace(/,/g, ''), 10);
+        const contributionsCount = parseInt(String(rawContributions).replace(/,/g, ''), 10);
         
         if (isNaN(contributionsCount) || contributionsCount < 0) {
             return res.status(400).json({ error: "Parsed contributions count is completely invalid" });

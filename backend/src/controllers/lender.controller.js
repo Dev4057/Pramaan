@@ -76,7 +76,7 @@ async function getLenderReport(req, res) {
 
         // 3. Fetch detailed context purely from cache (DB)
         const cacheEntry = await prisma.scoreProfile.findUnique({
-            where: { walletAddress }
+            where: { walletAddress: workerAddress }
         });
         
         // Ensure cache aligns with chain realistically
