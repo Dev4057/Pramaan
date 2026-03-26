@@ -49,9 +49,9 @@
         "provider": "linkedin",
         "providerName": "LinkedIn",
         "category": "social",
-        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/a280e81711",
-        "expiresAt": 1774529276546,
-        "updatedAt": 1774529279505,
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/1470c82735",
+        "expiresAt": 1774533051383,
+        "updatedAt": 1774533050795,
         "metric": {
           "type": "profile_verified",
           "value": 1,
@@ -108,8 +108,8 @@
           "weightedContribution": 11
         }
       ],
-      "scoreTxHash": "0x5c429773da711d44a30a43d22f10da26117e6adfc7756aafd284f7d814b9b3ab",
-      "mintedAt": 1774529288227
+      "scoreTxHash": "0x7c960b5c9b928e243fce27a65492b0bb8b32bf719d27088326244799e526ef95",
+      "mintedAt": 1774533059493
     }
   },
   "0x1111111111111111111111111111111111111111": {
@@ -190,6 +190,17 @@
       "scoreAssigned": true,
       "score": 0,
       "scoreTxHash": "0x0b27b42f67a7e8587a7fc6a3dc5c336d4281335a99ab9cdaabcaadd0f074ee4f"
+    },
+    "providerProofs": {
+      "sbi": {
+        "ready": false,
+        "provider": "sbi",
+        "providerName": "SBI Bank",
+        "category": "financial",
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/e0d815bd46",
+        "expiresAt": 1774535614538,
+        "updatedAt": 1774535494538
+      }
     }
   }
 }

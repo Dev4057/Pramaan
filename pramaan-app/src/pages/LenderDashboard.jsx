@@ -45,7 +45,15 @@ export default function LenderDashboard() {
           });
       
       console.log("Success on first try (Free access or already paid?):", response.data);
-      setWorkerData(response.data);
+      
+      const onChainScore = await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: PramaanABI.abi,
+        functionName: 'getGigScore',
+        args: [workerAddress]
+      });
+
+      setWorkerData({ ...response.data, score: Number(onChainScore) });
       setPaymentStatus("");
 
     } catch (err) {
@@ -59,18 +67,18 @@ export default function LenderDashboard() {
         setPaymentStatus("x402 Protocol: 0.05 USDC Fee Required. Please sign in your wallet...");
         
         try {
-          const paymentAddress = err.response.headers['x-payment-address'] || '0xa60d26d641fC807C9659df3f1A5E24Dc54C6baD7';
-          const paymentAmountRaw = err.response.headers['x-payment-amount'] || '50000';
+          const paymentAddress = err.response.headers['x-payment-address'];
+          const paymentAmountRaw = err.response.headers['x-payment-amount'];
           const paymentAmount = BigInt(paymentAmountRaw);
           
           console.log(`Preparing to send ${paymentAmountRaw} units of USDC to ${paymentAddress} on Base L2...`);
-
-          // 3. Lender signs the USDC transfer on the connected network
-          console.log(`USDC Address dynamically loaded: ${usdcAddress}`);
-          
           if (!usdcAddress) {
             throw new Error("Mock USDC Address not loaded yet. Please wait a second and try again.");
           }
+          if (!paymentAddress || !paymentAmount) {
+            throw new Error("Payment Address not loaded yet. Please wait a second and try again.");
+          }
+
 
           setPaymentStatus("Awaiting MetaMask confirmation...");
           
@@ -96,8 +104,15 @@ export default function LenderDashboard() {
             headers: { 'x-api-key': LENDER_API_KEY, 'x-payment-proof': txHash }
           });
 
+          const onChainScore = await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: PramaanABI.abi,
+            functionName: 'getGigScore',
+            args: [workerAddress]
+          });
+    
           console.log("x402 Retry Successful! Private data unlocked:", retryResponse.data);
-          setWorkerData(retryResponse.data);
+          setWorkerData({ ...retryResponse.data, score: Number(onChainScore) });
           setPaymentStatus("");
 
         } catch (txError) {

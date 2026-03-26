@@ -12,19 +12,8 @@ const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 const ANON_NULLIFIER_SEED = import.meta.env.VITE_ANON_NULLIFIER_SEED || '1234';
 
-// SAFE ABI TO PREVENT DECODING ERRORS FROM ZK FIELDS
-const WORKER_GETTER_ABI = [{
-  type: 'function', name: 'workers', stateMutability: 'view', inputs: [{ name: '', type: 'address' }],
-  outputs: [
-    { name: 'identityVerified', type: 'bool' }, { name: 'incomeVerified', type: 'bool' },
-    { name: 'gigScore', type: 'uint8' }, { name: 'lastUpdated', type: 'uint256' },
-    { name: 'identityDdocId', type: 'string' }, { name: 'incomeDdocId', type: 'string' },
-    { name: 'platform', type: 'string' }, { name: 'identityProofHash', type: 'string' },
-    { name: 'incomeProofHash', type: 'string' }, { name: 'identityNullifier', type: 'bytes32' },
-    { name: 'incomeNullifier', type: 'bytes32' }, { name: 'identityCommitment', type: 'bytes32' },
-    { name: 'incomeCommitment', type: 'bytes32' }, { name: 'exists', type: 'bool' }
-  ]
-}];
+// NOTE: workers() and getWorkerProfile() fail due to ABI/storage layout mismatch
+// on the deployed contract. Use getGigScore() and isVerified() instead.
 
 export default function CreateIdentity() {
   const navigate = useNavigate();
@@ -55,37 +44,33 @@ export default function CreateIdentity() {
   const [scoreBreakdown, setScoreBreakdown] = useState(null);       // composite score result
   const [failedProvider, setFailedProvider] = useState(null);       // provider key that failed (for demo fallback)
 
-  // Helper to safely read profile without ABI crashing
+  // Helper to safely read profile — uses only simple-return functions
+  // because workers()/getWorkerProfile() fail due to ABI mismatch with deployed contract
   async function getSafeProfile() {
     if (!publicClient || !address) return null;
     try {
-      // Try extended ZK ABI first
-      const data = await publicClient.readContract({
-        address: CONTRACT_ADDRESS, abi: WORKER_GETTER_ABI, functionName: 'workers', args: [address]
-      });
-      return { 
-        identityVerified: data[0], 
-        incomeVerified: data[1], 
-        platform: data[6],
-        identityDdocId: data[4],
-        incomeDdocId: data[5]
+      const [isVerified, gigScore] = await Promise.all([
+        publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: PramaanABI.abi,
+          functionName: 'isVerified', args: [address]
+        }).catch(() => false),
+        publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: PramaanABI.abi,
+          functionName: 'getGigScore', args: [address]
+        }).catch(() => 0),
+      ]);
+      // isVerified returns true only if exists && identityVerified && incomeVerified
+      if (!isVerified && Number(gigScore) === 0) return null;
+      return {
+        identityVerified: isVerified,
+        incomeVerified: isVerified,
+        gigScore: Number(gigScore),
+        platform: 'Multi-Source RaaS',
+        exists: true,
       };
-    } catch (err) {
-      try {
-        // Fallback to legacy ABI
-        const data = await publicClient.readContract({
-          address: CONTRACT_ADDRESS, abi: PramaanABI.abi, functionName: 'workers', args: [address]
-        });
-        return { 
-          identityVerified: data[0], 
-          incomeVerified: data[1], 
-          platform: data[6],
-          identityDdocId: data[4],
-          incomeDdocId: data[5]
-        };
-      } catch (e) {
-        return null;
-      }
+    } catch (e) {
+      console.warn('[getSafeProfile] failed:', e.message);
+      return null;
     }
   }
 

@@ -14,6 +14,7 @@ import CreateIdentity from "./pages/CreateIdentity";
 import VerifyIdentity from "./pages/VerifyIdentity";
 import LenderDashboard from "./pages/LenderDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import ApiDocs from "./pages/ApiDocs";
 import NotFound from "./pages/NotFound";
 
 // Reading straight from your perfect .env file
@@ -44,6 +45,7 @@ const App = () => (
                 <Route path="/verify" element={<VerifyIdentity />} />
                 <Route path="/lender" element={<LenderDashboard />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/docs" element={<ApiDocs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
