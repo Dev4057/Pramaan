@@ -853,35 +853,117 @@ app.get('/api/lender/worker-score/:workerAddress', requireApiKey, async (req, re
 
   const workerData = pendingProofs[workerAddress.toLowerCase()] || {};
   const reputation = workerData.reputation || {};
+  const providerProofs = workerData.providerProofs || {};
+  const compositeData = workerData.compositeScore || null;
+  const identityVerified = !!workerData.identity?.ready;
+  const active = getActiveProviders();
 
-  if (!reputation.scoreAssigned) {
+  // Read the REAL on-chain score (source of truth)
+  let onChainScore = 0;
+  let onChainVerified = false;
+  try {
+    const baseTransport = http(process.env.BASE_RPC_URL || 'https://sepolia.base.org');
+    const readClient = createPublicClient({ chain: baseSepolia, transport: baseTransport });
+    const [chainScore, chainVerified] = await Promise.all([
+      readClient.readContract({
+        address: CONTRACT_ADDRESS, abi: CONTRACT_ABI,
+        functionName: 'getGigScore', args: [workerAddress]
+      }).catch(() => 0n),
+      readClient.readContract({
+        address: CONTRACT_ADDRESS, abi: CONTRACT_ABI,
+        functionName: 'isVerified', args: [workerAddress]
+      }).catch(() => false)
+    ]);
+    onChainScore = Number(chainScore);
+    onChainVerified = !!chainVerified;
+  } catch (e) {
+    log('⚠️', 'LENDER', `On-chain read failed: ${e.message}`);
+  }
+
+  // Check if worker has ANY data: on-chain score, composite score, or legacy reputation
+  const hasComposite = !!compositeData?.compositeScore;
+  const hasLegacy = !!reputation.scoreAssigned;
+  const hasOnChain = onChainScore > 0;
+
+  if (!hasComposite && !hasLegacy && !hasOnChain) {
     return res.status(404).json({
       ok: false,
-      error: 'No score found for this worker. Worker must complete GitHub verification and score generation first.'
+      error: 'No score found for this worker. Worker must complete verification and score generation first.'
     });
   }
 
-  const score = reputation.score || 0;
-  const platform = reputation.platform || 'GitHub';
-  const contributions = reputation.contributions || 0;
-  const scoreTxHash = reputation.scoreTxHash || null;
-  const updatedAt = reputation.updatedAt ? new Date(reputation.updatedAt).toISOString() : null;
+  // Build provider breakdown from RaaS proofs
+  const breakdown = [];
+  for (const [key, p] of Object.entries(active)) {
+    const proof = providerProofs[key];
+    if (proof?.ready) {
+      breakdown.push({
+        provider: key,
+        name: p.shortName,
+        category: p.category,
+        icon: p.icon,
+        rawMetric: proof.metric,
+        metricLabel: p.metricLabel,
+        score: proof.score || 0,
+        weight: p.weight
+      });
+    }
+  }
 
-  // Generate AI analysis via AgentReport
+  // Include legacy github data only if no RaaS proofs exist
+  const legacyContributions = reputation.contributions || 0;
+  if (breakdown.length === 0 && legacyContributions > 0) {
+    const legacyScore = reputation.score || 0;
+    breakdown.push({
+      provider: 'github', name: 'GitHub', category: 'developer',
+      rawMetric: legacyContributions, metricLabel: 'contributions',
+      score: legacyScore, weight: 0.20
+    });
+  }
+
+  // Use the best available score: on-chain > composite > legacy
+  const bestScore = hasOnChain ? onChainScore : (compositeData?.compositeScore || reputation.score || 0);
+  const bestTier = bestScore >= 90 ? 'Exceptional' : bestScore >= 75 ? 'Strong' : bestScore >= 55 ? 'Moderate' : bestScore >= 30 ? 'Developing' : 'Early-Stage';
+
+  const profileData = {
+    compositeScore: bestScore,
+    tier: compositeData?.tier || bestTier,
+    identityVerified: identityVerified || onChainVerified,
+    sourcesVerified: compositeData?.sourcesVerified || breakdown.length,
+    totalSources: Object.keys(active).length,
+    breakdown,
+    identityBonus: compositeData?.identityBonus || ((identityVerified || onChainVerified) ? 5 : 0),
+    diversityBonus: compositeData?.diversityBonus || 0,
+    baseScore: compositeData?.baseScore || bestScore
+  };
+
+  const scoreTxHash = compositeData?.scoreTxHash || reputation.scoreTxHash || null;
+  const updatedAt = compositeData?.mintedAt
+    ? new Date(compositeData.mintedAt).toISOString()
+    : reputation.updatedAt ? new Date(reputation.updatedAt).toISOString() : null;
+
+  // Generate AI analysis with full provider data
   let aiAnalysis = 'Score verified on-chain via Pramaan Protocol.';
   try {
     const AgentReport = require('./src/services/AgentReport');
-    aiAnalysis = await AgentReport.generateRiskReport(score, contributions);
-  } catch (_) {}
+    aiAnalysis = await AgentReport.generateRiskReport(profileData);
+  } catch (e) {
+    log('⚠️', 'AI', `Report generation failed: ${e.message}`);
+  }
+
+  log('📊', 'LENDER REPORT', `Score=${bestScore}, Tier=${profileData.tier}, Sources=${profileData.sourcesVerified}, OnChain=${onChainScore}, Breakdown=${breakdown.map(b => b.provider).join(',')}`);
 
   res.json({
     ok: true,
-    score,
-    platform,
-    contributions,
+    score: bestScore,
+    tier: profileData.tier,
+    platform: compositeData ? 'Multi-Source RaaS' : (reputation.platform || 'GitHub'),
     scoreTxHash,
     updatedAt,
-    details: `${contributions} GitHub contributions verified via Reclaim ZK-Proofs. Score minted on-chain.`,
+    identityVerified: profileData.identityVerified,
+    sourcesVerified: profileData.sourcesVerified,
+    totalSources: profileData.totalSources,
+    breakdown,
     ai_analysis: aiAnalysis
   });
 });

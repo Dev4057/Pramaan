@@ -49,9 +49,9 @@
         "provider": "linkedin",
         "providerName": "LinkedIn",
         "category": "social",
-        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/1470c82735",
-        "expiresAt": 1774533051383,
-        "updatedAt": 1774533050795,
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/0859e5e193",
+        "expiresAt": 1774551418776,
+        "updatedAt": 1774551500480,
         "metric": {
           "type": "profile_verified",
           "value": 1,
@@ -71,12 +71,12 @@
       }
     },
     "compositeScore": {
-      "compositeScore": 39,
-      "baseScore": 35,
+      "compositeScore": 41,
+      "baseScore": 37,
       "identityBonus": 0,
       "diversityBonus": 4,
       "sourcesVerified": 2,
-      "totalPossibleSources": 4,
+      "totalPossibleSources": 8,
       "tier": "Developing",
       "breakdown": [
         {
@@ -88,8 +88,8 @@
           "metricLabel": "contributions",
           "metricUnit": "contributions/year",
           "score": 20,
-          "weight": 0.35,
-          "weightedContribution": 7
+          "weight": 0.2,
+          "weightedContribution": 4
         },
         {
           "provider": "linkedin",
@@ -104,12 +104,12 @@
           "metricLabel": "profile",
           "metricUnit": "verified",
           "score": 70,
-          "weight": 0.15,
-          "weightedContribution": 11
+          "weight": 0.1,
+          "weightedContribution": 7
         }
       ],
-      "scoreTxHash": "0x7c960b5c9b928e243fce27a65492b0bb8b32bf719d27088326244799e526ef95",
-      "mintedAt": 1774533059493
+      "scoreTxHash": "0x78e3cf0a83874765e9fde971121e1b31d5cd419852d20636be27259b84b0c68d",
+      "mintedAt": 1774551514348
     }
   },
   "0x1111111111111111111111111111111111111111": {

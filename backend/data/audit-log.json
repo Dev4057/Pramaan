@@ -186,5 +186,76 @@
     "ipAddress": "::1",
     "txHash": "0xd97544c62296b72e9583d0669fdc5f72924e6ac5b8c13876e128ae4fe4b89bf2",
     "createdAt": "2026-03-26T15:18:42.805Z"
+  },
+  {
+    "id": "73cdf069-8aef-44ad-b50a-9dbfda55b385",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": {
+        "type": "profile_verified",
+        "value": 1,
+        "username": "devang-gandhi-917304213"
+      },
+      "score": 70
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T18:58:20.477Z"
+  },
+  {
+    "id": "8fb20478-e335-4378-8a46-7490f359b952",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 41,
+      "tier": "Developing",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x78e3cf0a83874765e9fde971121e1b31d5cd419852d20636be27259b84b0c68d",
+    "createdAt": "2026-03-26T18:58:34.349Z"
+  },
+  {
+    "id": "83eae95f-12cf-4ef5-bd3e-d0b3f588570e",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x738e373bba5e654f57983094810f89ea74d0a1200d7d16604c600c67d9bfb3cd",
+    "createdAt": "2026-03-26T19:04:35.398Z"
+  },
+  {
+    "id": "ec9e29ed-86fd-447a-b585-8a01451ef628",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x50e574aa41931eb09c0877cb98f64e77bfac36405dc03f44913ef03a1fb79671",
+    "createdAt": "2026-03-26T19:14:12.366Z"
+  },
+  {
+    "id": "92b54465-3a68-4622-9276-91442898176b",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x9f718dd047756f7b62c8f8cc069b8ad6d786390c5e355b53b73d3e54758b9049",
+    "createdAt": "2026-03-26T19:20:31.149Z"
+  },
+  {
+    "id": "93040dbf-bee6-447c-a358-fab147f43d3d",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x5693e1129e22824e5ff6a00a030de04b6aa9abbab32ff57be5850e871404f11a",
+    "createdAt": "2026-03-26T19:21:46.722Z"
   }
 ]
