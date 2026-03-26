@@ -328,34 +328,29 @@ export default function WorkerDashboard() {
   async function getWorkerProfileOnChain() {
     if (!publicClient || !address) return null
     try {
-      const extendedProfile = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: WORKER_GETTER_ABI,
-        functionName: 'workers',
-        args: [address]
-      })
-
-      const normalizedExtended = normalizeWorkerProfile(extendedProfile)
-      if (normalizedExtended) return normalizedExtended
+      // Use safe simple-return functions (workers/getWorkerProfile fail due to ABI mismatch)
+      const [isVerified, gigScore] = await Promise.all([
+        publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: PramaanABI.abi,
+          functionName: 'isVerified', args: [address]
+        }).catch(() => false),
+        publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: PramaanABI.abi,
+          functionName: 'getGigScore', args: [address]
+        }).catch(() => 0),
+      ])
+      if (!isVerified && Number(gigScore) === 0) return null
+      return {
+        identityVerified: isVerified,
+        incomeVerified: isVerified,
+        gigScore: Number(gigScore),
+        platform: 'Multi-Source RaaS',
+        identityDdocId: '',
+        incomeDdocId: '',
+      }
     } catch (_) {
-      // Try legacy ABI shape used by older deployments.
+      return null
     }
-
-    try {
-      const legacyProfile = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: PramaanABI.abi,
-        functionName: 'workers',
-        args: [address]
-      })
-
-      const normalizedLegacy = normalizeWorkerProfile(legacyProfile)
-      if (normalizedLegacy) return normalizedLegacy
-    } catch (_) {
-      // Best effort sync from chain.
-    }
-
-    return null
   }
 
   async function isIncomeAlreadyVerifiedOnChain() {
