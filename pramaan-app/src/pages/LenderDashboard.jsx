@@ -9,6 +9,7 @@ import PramaanABI from '../abi/Pramaan.json';
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 const ERC20_ABI = [{ type: 'function', name: 'transfer', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] }];
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+const LENDER_API_KEY = import.meta.env.VITE_LENDER_API_KEY || 'pk_pramaan_demo_2026';
 
 export default function LenderDashboard() {
   const { address } = useAccount();
@@ -39,7 +40,9 @@ export default function LenderDashboard() {
     try {
       console.log("1. Attempting to fetch worker score without payment proof...");
       // 1. Initial attempt (Will fail with 402 if unpaid)
-      const response = await axios.get(`${BACKEND_URL}/api/lender/worker-score/${workerAddress}`);
+      const response = await axios.get(`${BACKEND_URL}/api/lender/worker-score/${workerAddress}`, {
+            headers: { 'x-api-key': LENDER_API_KEY }
+          });
       
       console.log("Success on first try (Free access or already paid?):", response.data);
       setWorkerData(response.data);
@@ -90,7 +93,7 @@ export default function LenderDashboard() {
           console.log("Retrying Axios fetch with 'x-payment-proof' header injected...");
           
           const retryResponse = await axios.get(`${BACKEND_URL}/api/lender/worker-score/${workerAddress}`, {
-            headers: { 'x-payment-proof': txHash }
+            headers: { 'x-api-key': LENDER_API_KEY, 'x-payment-proof': txHash }
           });
 
           console.log("x402 Retry Successful! Private data unlocked:", retryResponse.data);

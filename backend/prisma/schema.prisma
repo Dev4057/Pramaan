@@ -29,3 +29,18 @@ model ScoreProfile {
 
   user           User     @relation(fields: [walletAddress], references: [walletAddress], onDelete: Cascade)
 }
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  walletAddress String
+  action        String   // identity_verified, provider_verified, score_minted, lender_query, demo_used
+  provider      String?  // github, uber, sbi, linkedin
+  details       String?  @db.Text // JSON string with additional context
+  ipAddress     String?
+  txHash        String?
+  createdAt     DateTime @default(now())
+
+  @@index([walletAddress])
+  @@index([action])
+  @@index([createdAt])
+}

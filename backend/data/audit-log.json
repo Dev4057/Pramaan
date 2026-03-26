@@ -1,0 +1,99 @@
+[
+  {
+    "id": "d8d804b1-db8b-4240-963d-6ce2aaed3a8f",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": 0,
+      "score": 0
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T10:26:56.954Z"
+  },
+  {
+    "id": "d520bb2e-72e4-49ad-925a-cf0bd059a7b9",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": 0,
+      "score": 0
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T11:07:26.729Z"
+  },
+  {
+    "id": "fa456458-04f3-45ab-a6d2-8bcbe585bb47",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": 0,
+      "score": 0
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T11:17:06.307Z"
+  },
+  {
+    "id": "2cbb95d9-fe36-4cbb-b362-f5e9d9fb1ff0",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "github",
+    "details": {
+      "metric": 3,
+      "score": 20
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T11:18:37.163Z"
+  },
+  {
+    "id": "9d4a777c-4178-451a-af3f-406b840c97ed",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 18,
+      "tier": "Early-Stage",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x3f04ac9c10c571aea033651e8991b7e0a2cbdd6f2ad550794a9bd9d43e500f22",
+    "createdAt": "2026-03-26T11:18:58.373Z"
+  },
+  {
+    "id": "cc167ebb-0dbe-42c7-86d3-40615670d009",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": {
+        "type": "profile_verified",
+        "value": 1,
+        "username": "devang-gandhi-917304213"
+      },
+      "score": 70
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T12:47:59.504Z"
+  },
+  {
+    "id": "5f491317-3ee2-434f-83e7-6e58d722ce83",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 39,
+      "tier": "Developing",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x5c429773da711d44a30a43d22f10da26117e6adfc7756aafd284f7d814b9b3ab",
+    "createdAt": "2026-03-26T12:48:08.229Z"
+  }
+]

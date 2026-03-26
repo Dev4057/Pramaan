@@ -20,16 +20,96 @@
       "type": "reputation",
       "provider": "github",
       "providerLabel": "GitHub",
-      "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/fcf34dffeb",
-      "expiresAt": 1774465221114,
-      "updatedAt": 1774465296866,
+      "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/aa21bb9a92",
+      "expiresAt": 1774522899155,
+      "updatedAt": 1774522991581,
       "proofHash": "72657075746174696f6e2d307861363064323664363431664338303743393635",
-      "ddocId": "fallback-1774465219466",
-      "contributions": 422,
+      "ddocId": "fallback-1774522862861",
+      "contributions": 3,
       "platform": "GitHub",
       "scoreAssigned": true,
-      "score": 60,
-      "scoreTxHash": "0xa9a8fda9dfd2b1b053a7ec3f9a727443d224a0057e0e26b907fc320e5f521639"
+      "score": 20,
+      "scoreTxHash": "0x27eb821bfad93c103dd7808379a88466c6a726b5ff478b88fdd6f48b62358ae0"
+    },
+    "providerProofs": {
+      "github": {
+        "ready": true,
+        "provider": "github",
+        "providerName": "GitHub",
+        "category": "developer",
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/f85078d5f3",
+        "expiresAt": 1774523950469,
+        "updatedAt": 1774523917164,
+        "metric": 3,
+        "score": 20,
+        "proofHash": "6769746875622d30786136306432366436343166433830374339363539646633"
+      },
+      "linkedin": {
+        "ready": true,
+        "provider": "linkedin",
+        "providerName": "LinkedIn",
+        "category": "social",
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/a280e81711",
+        "expiresAt": 1774529276546,
+        "updatedAt": 1774529279505,
+        "metric": {
+          "type": "profile_verified",
+          "value": 1,
+          "username": "devang-gandhi-917304213"
+        },
+        "score": 70,
+        "proofHash": "6c696e6b6564696e2d3078613630643236643634316643383037433936353964"
+      },
+      "sbi": {
+        "ready": false,
+        "provider": "sbi",
+        "providerName": "SBI Bank",
+        "category": "financial",
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/dd3ff370c4",
+        "expiresAt": 1774508455677,
+        "updatedAt": 1774508335677
+      }
+    },
+    "compositeScore": {
+      "compositeScore": 39,
+      "baseScore": 35,
+      "identityBonus": 0,
+      "diversityBonus": 4,
+      "sourcesVerified": 2,
+      "totalPossibleSources": 4,
+      "tier": "Developing",
+      "breakdown": [
+        {
+          "provider": "github",
+          "name": "GitHub",
+          "category": "developer",
+          "icon": "github",
+          "rawMetric": 3,
+          "metricLabel": "contributions",
+          "metricUnit": "contributions/year",
+          "score": 20,
+          "weight": 0.35,
+          "weightedContribution": 7
+        },
+        {
+          "provider": "linkedin",
+          "name": "LinkedIn",
+          "category": "social",
+          "icon": "linkedin",
+          "rawMetric": {
+            "type": "profile_verified",
+            "value": 1,
+            "username": "devang-gandhi-917304213"
+          },
+          "metricLabel": "profile",
+          "metricUnit": "verified",
+          "score": 70,
+          "weight": 0.15,
+          "weightedContribution": 11
+        }
+      ],
+      "scoreTxHash": "0x5c429773da711d44a30a43d22f10da26117e6adfc7756aafd284f7d814b9b3ab",
+      "mintedAt": 1774529288227
     }
   },
   "0x1111111111111111111111111111111111111111": {

@@ -98,3 +98,12 @@ async function getLenderReport(req, res) {
 }
 
 module.exports = { processAndMintScore, getLenderReport };
+
+
+// Priority	Feature	Impact
+// 1	Security headers + rate limiting	Judges will check this
+// 2	Error boundaries + 404 catch-all	App crashes without them
+// 3	Better Aadhaar UX (instructions for mAadhaar)	Users get confused
+// 4	Admin/Analytics dashboard	Shows enterprise thinking
+// 5	Audit logging in DB	Enterprise requirement
+// 6	API key auth for lender endpoints	Real B2B pattern
