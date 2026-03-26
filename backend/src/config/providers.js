@@ -13,7 +13,7 @@ const PROVIDER_REGISTRY = {
     category: 'developer',       // developer | gig | financial | social
     icon: 'github',
     description: 'Yearly contribution count from your GitHub profile',
-    weight: 0.35,                // weight in composite score
+    weight: 0.20,                // weight in composite score
     maxRawScore: 100,
     // How to extract the key metric from Reclaim proof parameters
     extractMetric(params) {
@@ -51,7 +51,7 @@ const PROVIDER_REGISTRY = {
     category: 'gig',
     icon: 'car',
     description: 'Verified driver rating and trip count from Uber',
-    weight: 0.25,
+    weight: 0.20,
     maxRawScore: 100,
     extractMetric(params) {
       // Uber provider typically returns rating and/or trip count
@@ -90,7 +90,7 @@ const PROVIDER_REGISTRY = {
     category: 'financial',
     icon: 'landmark',
     description: 'Verified account balance or transaction history from SBI',
-    weight: 0.25,
+    weight: 0.20,
     maxRawScore: 100,
     extractMetric(params) {
       const balance = parseFloat(
@@ -125,7 +125,7 @@ const PROVIDER_REGISTRY = {
     category: 'social',
     icon: 'linkedin',
     description: 'Verified professional profile via ZK proof',
-    weight: 0.15,
+    weight: 0.10,
     maxRawScore: 100,
     extractMetric(params) {
       // First try numeric metrics (connections, followers)
@@ -165,6 +165,207 @@ const PROVIDER_REGISTRY = {
     },
     metricLabel: 'profile',
     metricUnit: 'verified'
+  },
+
+  twitter: {
+    id: process.env.RECLAIM_PROVIDER_TWITTER || '',
+    name: 'Twitter User Profile',
+    shortName: 'Twitter',
+    category: 'social',
+    icon: 'twitter',
+    description: 'Verified Twitter profile with follower count',
+    weight: 0.10,
+    maxRawScore: 100,
+    extractMetric(params) {
+      const followers = parseInt(
+        String(params.followers || params.followerCount || params.follower_count ||
+        params.followersCount || params.followers_count || '0').replace(/[,\s]/g, ''), 10
+      );
+      if (followers > 0) return { type: 'followers', value: followers };
+
+      const username = params.username || params.screen_name || params.screenName || params.handle || '';
+      if (username && username.length > 0) return { type: 'profile_verified', value: 1, username };
+
+      // Numeric fallback
+      const nums = Object.values(params).filter(v => {
+        const n = parseInt(String(v).replace(/[,\s]/g, ''), 10);
+        return !isNaN(n) && n > 0;
+      });
+      return nums.length > 0 ? { type: 'followers', value: parseInt(String(nums[0]).replace(/[,\s]/g, ''), 10) } : { type: 'none', value: 0 };
+    },
+    scoreMetric(value) {
+      if (typeof value === 'object') {
+        if (value.type === 'followers') {
+          const f = value.value;
+          if (f >= 10000) return 90;
+          if (f >= 5000) return 75;
+          if (f >= 1000) return 60;
+          if (f >= 500) return 45;
+          if (f >= 100) return 30;
+          if (f > 0) return 15;
+          return 0;
+        }
+        if (value.type === 'profile_verified') return 50;
+        return 0;
+      }
+      return 0;
+    },
+    metricLabel: 'followers',
+    metricUnit: 'followers'
+  },
+
+  netflix: {
+    id: process.env.RECLAIM_PROVIDER_NETFLIX || '',
+    name: 'Netflix Watch History',
+    shortName: 'Netflix',
+    category: 'entertainment',
+    icon: 'tv',
+    description: 'Verified Netflix subscription and watch history',
+    weight: 0.05,
+    maxRawScore: 100,
+    extractMetric(params) {
+      const watchCount = parseInt(
+        String(params.watchCount || params.watch_count || params.titlesWatched ||
+        params.titles_watched || params.viewingHistory || params.totalWatched || '0').replace(/[,\s]/g, ''), 10
+      );
+      if (watchCount > 0) return { type: 'watch_count', value: watchCount };
+
+      const membership = params.membership || params.plan || params.membershipType || params.subscription || '';
+      if (membership && membership.length > 0) return { type: 'membership', value: 1, plan: membership };
+
+      // Profile verified fallback
+      const username = params.username || params.profileName || params.profile_name || '';
+      if (username && username.length > 0) return { type: 'profile_verified', value: 1, username };
+
+      return { type: 'none', value: 0 };
+    },
+    scoreMetric(value) {
+      if (typeof value === 'object') {
+        if (value.type === 'watch_count') {
+          const w = value.value;
+          if (w >= 500) return 80;
+          if (w >= 200) return 60;
+          if (w >= 50) return 40;
+          if (w > 0) return 20;
+          return 0;
+        }
+        if (value.type === 'membership') return 55;
+        if (value.type === 'profile_verified') return 40;
+        return 0;
+      }
+      return 0;
+    },
+    metricLabel: 'titles watched',
+    metricUnit: 'titles'
+  },
+
+  discord: {
+    id: process.env.RECLAIM_PROVIDER_DISCORD || '',
+    name: 'Discord Channel',
+    shortName: 'Discord',
+    category: 'social',
+    icon: 'message-circle',
+    description: 'Verified Discord server membership and activity',
+    weight: 0.05,
+    maxRawScore: 100,
+    extractMetric(params) {
+      const servers = parseInt(
+        String(params.servers || params.serverCount || params.server_count ||
+        params.guilds || params.guildCount || '0').replace(/[,\s]/g, ''), 10
+      );
+      if (servers > 0) return { type: 'servers', value: servers };
+
+      const channelId = params.channelId || params.channel_id || params.serverId || params.server_id || '';
+      if (channelId && channelId.length > 0) return { type: 'channel_verified', value: 1, channelId };
+
+      const username = params.username || params.discriminator || params.user || '';
+      if (username && username.length > 0) return { type: 'profile_verified', value: 1, username };
+
+      return { type: 'none', value: 0 };
+    },
+    scoreMetric(value) {
+      if (typeof value === 'object') {
+        if (value.type === 'servers') {
+          const s = value.value;
+          if (s >= 50) return 75;
+          if (s >= 20) return 55;
+          if (s >= 10) return 40;
+          if (s > 0) return 25;
+          return 0;
+        }
+        if (value.type === 'channel_verified') return 50;
+        if (value.type === 'profile_verified') return 45;
+        return 0;
+      }
+      return 0;
+    },
+    metricLabel: 'servers',
+    metricUnit: 'servers'
+  },
+
+  amazon: {
+    id: process.env.RECLAIM_PROVIDER_AMAZON || '',
+    name: 'Amazon Order History',
+    shortName: 'Amazon',
+    category: 'ecommerce',
+    icon: 'shopping-cart',
+    description: 'Verified Amazon order history and purchase activity',
+    weight: 0.10,
+    maxRawScore: 100,
+    extractMetric(params) {
+      // Try to extract order count or total spend
+      const orderCount = parseInt(
+        String(params.orderCount || params.order_count || params.orders ||
+        params.totalOrders || params.total_orders || '0').replace(/[,\s]/g, ''), 10
+      );
+      if (orderCount > 0) return { type: 'order_count', value: orderCount };
+
+      // Try total spend amount
+      const totalSpend = parseFloat(
+        String(params.totalSpend || params.total_spend || params.amount ||
+        params.totalAmount || params.total_amount || params.orderTotal || '0').replace(/[,₹$\s]/g, '')
+      );
+      if (totalSpend > 0) return { type: 'total_spend', value: totalSpend };
+
+      // Last order details fallback — proves account ownership
+      const lastOrder = params.lastOrder || params.last_order || params.orderDetails ||
+        params.order_details || params.itemName || params.item_name || '';
+      if (lastOrder && lastOrder.length > 0) return { type: 'order_verified', value: 1, details: lastOrder };
+
+      // Any string value = proof of account
+      const anyVal = Object.values(params).find(v => typeof v === 'string' && v.length > 2);
+      if (anyVal) return { type: 'account_verified', value: 1 };
+
+      return { type: 'none', value: 0 };
+    },
+    scoreMetric(value) {
+      if (typeof value === 'object') {
+        if (value.type === 'order_count') {
+          const o = value.value;
+          if (o >= 100) return 85;
+          if (o >= 50) return 70;
+          if (o >= 20) return 55;
+          if (o >= 5) return 35;
+          if (o > 0) return 20;
+          return 0;
+        }
+        if (value.type === 'total_spend') {
+          const s = value.value;
+          if (s >= 100000) return 90;
+          if (s >= 50000) return 75;
+          if (s >= 20000) return 60;
+          if (s >= 5000) return 40;
+          if (s > 0) return 20;
+          return 0;
+        }
+        if (value.type === 'order_verified') return 55;
+        if (value.type === 'account_verified') return 40;
+        return 0;
+      }
+      return 0;
+    },
+    metricLabel: 'orders',
+    metricUnit: 'orders'
   }
 };
 
@@ -173,7 +374,9 @@ const PROVIDER_CATEGORIES = {
   developer: { label: 'Developer', description: 'Code & open source activity', icon: 'code' },
   gig: { label: 'Gig Economy', description: 'Platform work & ratings', icon: 'briefcase' },
   financial: { label: 'Financial', description: 'Banking & income', icon: 'landmark' },
-  social: { label: 'Social', description: 'Professional network', icon: 'users' }
+  social: { label: 'Social', description: 'Professional & social networks', icon: 'users' },
+  entertainment: { label: 'Entertainment', description: 'Streaming & media subscriptions', icon: 'tv' },
+  ecommerce: { label: 'E-Commerce', description: 'Online shopping & purchase history', icon: 'shopping-cart' }
 };
 
 // Only return providers that have a valid Reclaim provider ID configured

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, ExternalLink, Bot, Sparkles, Github, Car, Landmark, Linkedin, Users, Code, Briefcase, Plus } from "lucide-react";
+import { CheckCircle2, Loader2, ArrowRight, Shield, Fingerprint, BarChart3, ExternalLink, Bot, Sparkles, Github, Car, Landmark, Linkedin, Users, Code, Briefcase, Plus, Twitter, Tv, MessageCircle, ShoppingCart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
@@ -585,8 +585,8 @@ export default function CreateIdentity() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                   {availableProviders.map((p) => {
                     const isVerified = !!verifiedProviders[p.key];
-                    const IconComponent = p.icon === 'github' ? Github : p.icon === 'car' ? Car : p.icon === 'landmark' ? Landmark : p.icon === 'linkedin' ? Linkedin : Code;
-                    const categoryColor = p.category === 'developer' ? 'text-violet-500' : p.category === 'gig' ? 'text-amber-500' : p.category === 'financial' ? 'text-emerald-500' : 'text-blue-500';
+                    const IconComponent = p.icon === 'github' ? Github : p.icon === 'car' ? Car : p.icon === 'landmark' ? Landmark : p.icon === 'linkedin' ? Linkedin : p.icon === 'twitter' ? Twitter : p.icon === 'tv' ? Tv : p.icon === 'message-circle' ? MessageCircle : p.icon === 'shopping-cart' ? ShoppingCart : Code;
+                    const categoryColor = p.category === 'developer' ? 'text-violet-500' : p.category === 'gig' ? 'text-amber-500' : p.category === 'financial' ? 'text-emerald-500' : p.category === 'entertainment' ? 'text-red-500' : p.category === 'ecommerce' ? 'text-orange-500' : 'text-blue-500';
                     const categoryBorder = isVerified ? 'border-success/40 bg-success/5' : 'border-border hover:border-primary/40 hover:bg-primary/5';
 
                     return (
@@ -840,7 +840,7 @@ export default function CreateIdentity() {
                   <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-4">Score Breakdown</p>
                   <div className="space-y-3">
                     {scoreBreakdown.breakdown.map((item) => {
-                      const IconComp = item.icon === 'github' ? Github : item.icon === 'car' ? Car : item.icon === 'landmark' ? Landmark : item.icon === 'linkedin' ? Linkedin : Code;
+                      const IconComp = item.icon === 'github' ? Github : item.icon === 'car' ? Car : item.icon === 'landmark' ? Landmark : item.icon === 'linkedin' ? Linkedin : item.icon === 'twitter' ? Twitter : item.icon === 'tv' ? Tv : item.icon === 'message-circle' ? MessageCircle : item.icon === 'shopping-cart' ? ShoppingCart : Code;
                       return (
                         <div key={item.provider} className="flex items-center gap-3">
                           <IconComp className="w-4 h-4 text-muted-foreground flex-shrink-0" />

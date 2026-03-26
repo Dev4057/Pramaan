@@ -1097,7 +1097,11 @@ const DEMO_PROVIDER_DATA = {
   github: { metric: 422, description: '422 contributions/year' },
   uber: { metric: { rating: 4.7, trips: 850 }, description: '4.7★ rating, 850 trips' },
   sbi: { metric: { balance: 75000, monthlyIncome: 45000 }, description: '₹75,000 balance, ₹45,000/mo income' },
-  linkedin: { metric: 280, description: '280 connections' }
+  linkedin: { metric: 280, description: '280 connections' },
+  twitter: { metric: { type: 'followers', value: 1250 }, description: '1,250 followers' },
+  netflix: { metric: { type: 'watch_count', value: 175 }, description: '175 titles watched' },
+  discord: { metric: { type: 'servers', value: 15 }, description: '15 servers joined' },
+  amazon: { metric: { type: 'order_count', value: 42 }, description: '42 orders placed' }
 };
 
 app.post('/api/demo/provider-verify/:providerKey/:walletAddress', (req, res) => {
