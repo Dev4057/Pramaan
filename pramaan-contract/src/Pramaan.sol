@@ -27,6 +27,8 @@ contract Pramaan {
         bytes32 identityCommitment;
         bytes32 incomeCommitment;
         bool exists;
+        uint256 expiresAt;
+        bool isDefaulted;
     }
 
     struct VerificationLog {
@@ -214,12 +216,15 @@ contract Pramaan {
     }
 
     // --- GigScore ---
-    function setGigScore(address _worker, uint8 _score) external onlyAgent {
+    function updateGigScore(address _worker, uint8 _score, string memory _dataHash) external onlyAgent {
         WorkerProfile storage w = workers[_worker];
         require(w.exists && w.incomeVerified, "Income not verified");
         require(_score <= 100, "Score 0-100");
 
         w.gigScore = _score;
+        w.expiresAt = block.timestamp + 30 days;
+        w.isDefaulted = false;
+        // Optionally store _dataHash, e.g. w.dataHash = _dataHash
         _bumpRevision(_worker);
 
         emit ScoreUpdated(_worker, _score, w.revision, block.timestamp);

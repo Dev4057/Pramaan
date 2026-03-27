@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { UserPlus, ShieldCheck, ArrowRight, Wallet, DatabaseZap } from "lucide-react";
+import { UserPlus, ShieldCheck, ArrowRight, Wallet, DatabaseZap, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
@@ -59,7 +59,7 @@ const Gateway = () => {
           </ConnectButton.Custom>
         </motion.div>
 
-        <div className={`grid sm:grid-cols-3 gap-4 ${!isConnected ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''} transition-all duration-500`}>
+        <div className={`grid sm:grid-cols-2 lg:grid-cols-4 gap-4 ${!isConnected ? 'opacity-50 pointer-events-none grayscale-[50%]' : ''} transition-all duration-500`}>
           {[
             {
               icon: UserPlus,
@@ -81,6 +81,13 @@ const Gateway = () => {
               desc: "Access the x402 Protocol to fetch deep analytics and worker profiles.",
               route: "/lender",
               glowClass: "hover:border-primary/40",
+            },
+            {
+              icon: BarChart3,
+              title: "Admin Analytics",
+              desc: "Monitor protocol health, provider performance, and verification stats in real-time.",
+              route: "/admin",
+              glowClass: "hover:border-violet-500/30",
             },
           ].map((card, i) => (
             <motion.button

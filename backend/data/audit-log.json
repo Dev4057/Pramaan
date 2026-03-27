@@ -1,0 +1,261 @@
+[
+  {
+    "id": "d8d804b1-db8b-4240-963d-6ce2aaed3a8f",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": 0,
+      "score": 0
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T10:26:56.954Z"
+  },
+  {
+    "id": "d520bb2e-72e4-49ad-925a-cf0bd059a7b9",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": 0,
+      "score": 0
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T11:07:26.729Z"
+  },
+  {
+    "id": "fa456458-04f3-45ab-a6d2-8bcbe585bb47",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": 0,
+      "score": 0
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T11:17:06.307Z"
+  },
+  {
+    "id": "2cbb95d9-fe36-4cbb-b362-f5e9d9fb1ff0",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "github",
+    "details": {
+      "metric": 3,
+      "score": 20
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T11:18:37.163Z"
+  },
+  {
+    "id": "9d4a777c-4178-451a-af3f-406b840c97ed",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 18,
+      "tier": "Early-Stage",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x3f04ac9c10c571aea033651e8991b7e0a2cbdd6f2ad550794a9bd9d43e500f22",
+    "createdAt": "2026-03-26T11:18:58.373Z"
+  },
+  {
+    "id": "cc167ebb-0dbe-42c7-86d3-40615670d009",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": {
+        "type": "profile_verified",
+        "value": 1,
+        "username": "devang-gandhi-917304213"
+      },
+      "score": 70
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T12:47:59.504Z"
+  },
+  {
+    "id": "5f491317-3ee2-434f-83e7-6e58d722ce83",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 39,
+      "tier": "Developing",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x5c429773da711d44a30a43d22f10da26117e6adfc7756aafd284f7d814b9b3ab",
+    "createdAt": "2026-03-26T12:48:08.229Z"
+  },
+  {
+    "id": "0a1980b5-c2cb-4fdf-aa34-371ccc30e47e",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": {
+        "type": "profile_verified",
+        "value": 1,
+        "username": "devang-gandhi-917304213"
+      },
+      "score": 70
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T13:50:50.793Z"
+  },
+  {
+    "id": "291c1362-f765-4813-9c4f-14c4c1634deb",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 39,
+      "tier": "Developing",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x7c960b5c9b928e243fce27a65492b0bb8b32bf719d27088326244799e526ef95",
+    "createdAt": "2026-03-26T13:50:59.494Z"
+  },
+  {
+    "id": "92373279-8b82-4af5-b51e-161b70c3b10f",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x562788d46a7d67f2ea3fe5f272293e12c6b577a93ccba9f581f436ae90dfcc8c",
+    "createdAt": "2026-03-26T14:09:53.551Z"
+  },
+  {
+    "id": "4bad5b74-f6cb-4c4f-a576-9e245ada2fc2",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0xe748345a3d10cd6d04e107a8714cd2463210635e5bdcfba9c8af9b7af458dd79",
+    "createdAt": "2026-03-26T14:12:15.855Z"
+  },
+  {
+    "id": "fcd68a53-851a-4dc2-bb4b-d7a3e95ac61d",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x337153629eb5b6a031c490f051d4cb5af8cd2ceedfa4ef23aa2afbe4b0012097",
+    "createdAt": "2026-03-26T15:05:02.703Z"
+  },
+  {
+    "id": "d4449e22-6fcb-4508-aa34-9bf748a2fa88",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0xaf96d6407b96d7b2decbdb710f0960a3b040525bf894d239fa710794b34b09a5",
+    "createdAt": "2026-03-26T15:08:23.435Z"
+  },
+  {
+    "id": "a5c71304-1974-414b-be6f-1e41cc116637",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x49582a5186a54baf3a0e7732e165fa52451a2f717e99e16e918bde2920d9e10d",
+    "createdAt": "2026-03-26T15:09:22.350Z"
+  },
+  {
+    "id": "6345f0ef-8983-4f0a-b7de-8c18e32baffd",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0xd97544c62296b72e9583d0669fdc5f72924e6ac5b8c13876e128ae4fe4b89bf2",
+    "createdAt": "2026-03-26T15:18:42.805Z"
+  },
+  {
+    "id": "73cdf069-8aef-44ad-b50a-9dbfda55b385",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "provider_verified",
+    "provider": "linkedin",
+    "details": {
+      "metric": {
+        "type": "profile_verified",
+        "value": 1,
+        "username": "devang-gandhi-917304213"
+      },
+      "score": 70
+    },
+    "ipAddress": null,
+    "txHash": null,
+    "createdAt": "2026-03-26T18:58:20.477Z"
+  },
+  {
+    "id": "8fb20478-e335-4378-8a46-7490f359b952",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "score_minted",
+    "provider": null,
+    "details": {
+      "compositeScore": 41,
+      "tier": "Developing",
+      "sources": 2
+    },
+    "ipAddress": null,
+    "txHash": "0x78e3cf0a83874765e9fde971121e1b31d5cd419852d20636be27259b84b0c68d",
+    "createdAt": "2026-03-26T18:58:34.349Z"
+  },
+  {
+    "id": "83eae95f-12cf-4ef5-bd3e-d0b3f588570e",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x738e373bba5e654f57983094810f89ea74d0a1200d7d16604c600c67d9bfb3cd",
+    "createdAt": "2026-03-26T19:04:35.398Z"
+  },
+  {
+    "id": "ec9e29ed-86fd-447a-b585-8a01451ef628",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x50e574aa41931eb09c0877cb98f64e77bfac36405dc03f44913ef03a1fb79671",
+    "createdAt": "2026-03-26T19:14:12.366Z"
+  },
+  {
+    "id": "92b54465-3a68-4622-9276-91442898176b",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x9f718dd047756f7b62c8f8cc069b8ad6d786390c5e355b53b73d3e54758b9049",
+    "createdAt": "2026-03-26T19:20:31.149Z"
+  },
+  {
+    "id": "93040dbf-bee6-447c-a358-fab147f43d3d",
+    "walletAddress": "0xa60d26d641fc807c9659df3f1a5e24dc54c6bad7",
+    "action": "lender_query",
+    "provider": null,
+    "details": null,
+    "ipAddress": "::1",
+    "txHash": "0x5693e1129e22824e5ff6a00a030de04b6aa9abbab32ff57be5850e871404f11a",
+    "createdAt": "2026-03-26T19:21:46.722Z"
+  }
+]
