@@ -68,6 +68,15 @@
         "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/dd3ff370c4",
         "expiresAt": 1774508455677,
         "updatedAt": 1774508335677
+      },
+      "twitter": {
+        "ready": false,
+        "provider": "twitter",
+        "providerName": "Twitter",
+        "category": "social",
+        "statusUrl": "https://api.reclaimprotocol.org/api/sdk/session/f33f173ec1",
+        "expiresAt": 1774594348973,
+        "updatedAt": 1774594228973
       }
     },
     "compositeScore": {
